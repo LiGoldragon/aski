@@ -206,7 +206,17 @@ speculation.
 
 ---
 
-## Char literal delimiter — backtick vs alternative
+## Char literal delimiter — SUPERSEDED 2026-04-20
+
+**No char literal syntax.** Direction: characters are a library of
+types — `Char` is an enum with nested-enum variants by category
+(`Char:Upper:A`, `Char:Lower:A`, `Char:Digit:Zero`, `Char:Punct:Tilde`,
+…) plus a `{Code (@Codepoint U32)}` fall-through. See
+[../gap-analysis.md §U16](../gap-analysis.md#u16-char-literal-delimiter--superseded-2026-04-20-by-char-as-nested-enum).
+
+The shape below is kept as historical context only — no longer live.
+
+## (historical) Char literal delimiter — backtick vs alternative
 
 A char literal needs a delimiter that doesn't conflict with existing
 syntax. The candidates:

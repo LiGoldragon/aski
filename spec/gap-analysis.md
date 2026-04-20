@@ -345,10 +345,20 @@ interpretive question: does "No Complex Lookahead" (design.md) target
 multi-token backtracking specifically, or cover single-token
 disambiguation too?
 
-### U16. Char literal delimiter — was "backtick"
+### U16. Char literal delimiter — SUPERSEDED 2026-04-20 by Char-as-nested-enum
 bridge/small-decisions.md previously recommended backtick `` `x` ``.
-Alternatives (apostrophe with origin-sigil collision, prefix `c"x"`,
-suffix `"x"c`, other) remain.
+Li's direction: **no char literal syntax at all** — chars are a library
+of types. `Char` is an enum with nested-enum variants by category
+(Upper, Lower, Digit, Whitespace, Control, Punct, Bracket), accessed
+via chained path: `Char:Upper:A`, `Char:Lower:A`, `Char:Digit:Zero`,
+`Char:Punct:Tilde`, etc. Case is carried by the outer variant, so no
+case-rule carve-out for letter names. Unicode fall-through via
+`{Code (@Codepoint U32)}` data-variant.
+
+**Still open:** (a) final category list (Upper/Lower/Digit/Whitespace/
+Control/Punct/Bracket provisional); (b) 3-segment path grammar
+(`Char:Upper:A` — chained `:` through nested enums) needs a grammar
+confirmation when U16 lands.
 
 ### U17. Methods-over-operators rubric
 bridge-proposals.md rubric rule #5 asserts "Methods over operators for
