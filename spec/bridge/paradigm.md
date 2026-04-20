@@ -1,9 +1,10 @@
-;; Aski Paradigm — types all the way down
-;; Date: 2026-04-20
-;;
-;; This document is the ground truth for how to frame aski's
-;; relationship to Rust. If another bridge doc claims something
-;; inconsistent with this, that other doc is wrong.
+# Aski Paradigm — types all the way down
+
+*2026-04-20*
+
+This document is the ground truth for how to frame aski's relationship
+to Rust. If another bridge doc claims something inconsistent with
+this, that other doc is wrong.
 
 # The claim
 

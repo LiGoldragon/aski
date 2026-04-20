@@ -1,9 +1,9 @@
-;; Bridge Proposals — Small Decisions
-;; Date: 2026-04-20
-;; Part of [../bridge-proposals.md](../bridge-proposals.md).
-;;
-;; Each item's design shape is settled — only a specific naming
-;; or sigil choice remains. One nod per item unblocks the landing.
+# Bridge Proposals — Small Decisions
+
+*2026-04-20 · Part of [../bridge-proposals.md](../bridge-proposals.md).*
+
+Each item's design shape is settled — only a specific naming or sigil
+choice remains. One nod per item unblocks the landing.
 
 # Contents
 

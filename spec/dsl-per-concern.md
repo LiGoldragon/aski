@@ -1,12 +1,12 @@
-;; DSL-per-concern — exploratory research
-;; Date: 2026-04-20
-;; Status: research, not a proposal — open space for Li to shape.
-;;
-;; The premise: aski's current "modules and libraries" surface hosts
-;; types (enum/struct/newtype/const), trait declarations, and trait
-;; implementations. Splitting those into separate surfaces is an
-;; extreme restructure that could yield novel capabilities Rust and
-;; its family can't express. This doc maps the venue.
+# DSL-per-concern — exploratory research
+
+*2026-04-20 · research, not a proposal — open space for Li to shape.*
+
+The premise: aski's current "modules and libraries" surface hosts
+types (enum/struct/newtype/const), trait declarations, and trait
+implementations. Splitting those into separate surfaces is an
+extreme restructure that could yield novel capabilities Rust and
+its family can't express. This doc maps the venue.
 
 # The idea
 

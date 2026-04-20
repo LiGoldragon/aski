@@ -1,10 +1,11 @@
-;; Shelved — TBD and unimportant for now
-;; Date: 2026-04-20
-;;
-;; Items parked here are decisions that are not urgent, not blocking,
-;; and not close to needing a call. They sit here to keep bridge-doc
-;; prose focused on in-flight decisions. Move an item out of this file
-;; when its time comes; revisit before any 1.0 claim.
+# Shelved — TBD and unimportant for now
+
+*2026-04-20*
+
+Items parked here are decisions that are not urgent, not blocking,
+and not close to needing a call. They sit here to keep bridge-doc
+prose focused on in-flight decisions. Move an item out of this file
+when its time comes; revisit before any 1.0 claim.
 
 # Contents
 

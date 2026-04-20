@@ -1,6 +1,6 @@
-;; Bridging Rust Gaps in Aski — Design Proposals (Index)
-;; Last updated: 2026-04-20
-;; Companion to [gap-analysis.md](gap-analysis.md).
+# Bridging Rust Gaps in Aski — Design Proposals (Index)
+
+*Last updated: 2026-04-20 · Companion to [gap-analysis.md](gap-analysis.md).*
 
 # Files
 

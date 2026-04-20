@@ -1,11 +1,10 @@
-;; Bridge Proposals — Big Decisions
-;; Date: 2026-04-20
-;; Part of [../bridge-proposals.md](../bridge-proposals.md).
-;;
-;; These don't resolve from inferred intent alone. Each requires
-;; a real design discussion — the alternatives have different
-;; character, not just different spelling. Pick one; implement;
-;; write it into design.md.
+# Bridge Proposals — Big Decisions
+
+*2026-04-20 · Part of [../bridge-proposals.md](../bridge-proposals.md).*
+
+These don't resolve from inferred intent alone. Each requires a real
+design discussion — the alternatives have different character, not
+just different spelling. Pick one; implement; write it into design.md.
 
 # Contents
 

@@ -1,8 +1,8 @@
-;; Aski v0.20 vs Rust — Gap Analysis
-;; Date: 2026-04-19
-;; Sources: [syntax-v020.aski](syntax-v020.aski),
-;; [design.md](design.md), ../core/*.core, ../../askicc/source/**/*.synth.
-;; Cross-checked against Mentci/RESTART-CONTEXT.md §13.
+# Aski v0.20 vs Rust — Gap Analysis
+
+*2026-04-19 · Sources: [syntax-v020.aski](syntax-v020.aski),
+[design.md](design.md), ../core/\*.core, ../../askicc/source/\*\*/\*.synth.
+Cross-checked against Mentci/RESTART-CONTEXT.md §13.*
 
 # Scope
 

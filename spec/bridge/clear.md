@@ -1,16 +1,16 @@
-;; Bridge Proposals — Shapes Sketched, Decisions Still Yours
-;; Date: 2026-04-20
-;; Part of [../bridge-proposals.md](../bridge-proposals.md).
-;;
-;; ⚠️ REFRAMING NOTE. An earlier draft of this file presented items
-;; as "clearly resolvable" with author-written recommendations. Per
-;; [paradigm.md](paradigm.md)'s rule ("do not say aski handles X
-;; unless there's a grammar citation; do not say aski doesn't support
-;; X unless design.md rejects it in prose"), those recommendations
-;; were out of scope — aski's syntax is being designed, not documented.
-;; This pass strips the author-made calls and restores each item to
-;; an open proposal. Li decides which shape lands; alternatives stay
-;; listed where they were ruled out prematurely.
+# Bridge Proposals — Shapes Sketched, Decisions Still Yours
+
+*2026-04-20 · Part of [../bridge-proposals.md](../bridge-proposals.md).*
+
+> **⚠️ Reframing note.** An earlier draft of this file presented items
+> as "clearly resolvable" with author-written recommendations. Per
+> [paradigm.md](paradigm.md)'s rule ("do not say aski handles X unless
+> there's a grammar citation; do not say aski doesn't support X unless
+> design.md rejects it in prose"), those recommendations were out of
+> scope — aski's syntax is being designed, not documented. This pass
+> strips the author-made calls and restores each item to an open
+> proposal. Li decides which shape lands; alternatives stay listed
+> where they were ruled out prematurely.
 
 # Contents
 
