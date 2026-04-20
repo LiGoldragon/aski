@@ -279,13 +279,13 @@ it'll map Never to whatever Rust form is current.
 
 ---
 
-### N7. Doc comments
+### N7. Doc comments — SHELVED 2026-04-20
 
-**Open question — sigil:** proposal below uses `;;;` (line-start triple-
-semicolon). Alternative: reuse block comments if introduced; or a
-different sigil. `;;;` has the merit of extending the existing `;;`
-comment convention with one more semicolon to mean "this comment carries
-structure." Confirm or propose alternative.
+Moved to [../shelved.md](../shelved.md#u8-doc-comment-sigil). Not
+blocking any in-flight decision; revisit when rsc / askid lands.
+
+The earlier draft proposed the shape below. Kept here for reference
+only — not live.
 
 ```rust
 /// A bounded FIFO queue.

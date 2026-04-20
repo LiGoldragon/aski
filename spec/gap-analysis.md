@@ -294,11 +294,10 @@ done via stdlib trait methods only. Unspec'd per paradigm.md. Options:
 `~name = expr` (reusing the mutation marker); (c) accept `x += y`
 family as operator-sugar desugaring to trait methods.
 
-### U8. Doc comment sigil — was "`;;;`"
-clear.md §N7 picked `;;;` (line-start triple-semicolon) as the doc-
-comment form. Plausible — extends the `;;` comment convention — but
-is a sigil choice that's yours. Alternatives: a block-doc form; a
-different leading marker.
+### U8. Doc comment sigil — SHELVED 2026-04-20
+Moved to [shelved.md](shelved.md#u8-doc-comment-sigil). Not blocking,
+not urgent; revisit when documentation becomes a real concern (rsc /
+askid landing).
 
 ### U9. Inherent impls rejection — was "Confirmed OUT"
 clear.md §C8 previously classified this as Confirmed OUT and proposed

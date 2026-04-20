@@ -34,6 +34,7 @@ Each file carries concrete Rust / aski / synth examples per item.
 | **Small open decisions** | S3 sigils, S6 `?{…}`, N5 lookahead, char delimiter | sigil/spelling calls, each with alternatives listed |
 | **Big open decisions** | C2+S10+N10 destructuring, S6 semantics, S4 closures | open design space |
 | **Unconsulted Claude decisions** | U1–U18 | see [gap-analysis.md §Unconsulted Claude decisions](gap-analysis.md#unconsulted-claude-decisions--now-open-gaps) |
+| **Shelved** | U8 (doc-comment sigil, 2026-04-20) | see [shelved.md](shelved.md) |
 
 # Rubric (carried forward — every proposal must respect)
 
