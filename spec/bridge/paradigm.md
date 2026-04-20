@@ -252,7 +252,7 @@ Legend: **L** Landed · **P** Proposed (with bridge-doc ref) · **U** Unspec'd �
 | Numeric separators `1_000_000` | P | §N8 |
 | Typed integer suffix `42u32` | P | §N8 |
 | Float literal | L | |
-| Bool literal `true` / `false` | U | No camelCase-keyword form — must use `True` / `False` variants of a Bool enum |
+| Bool literal `true` / `false` | U | No literal form today. Open — see bridge/clear.md §C3/§C4 and gap-analysis.md §U2/§U3. |
 
 ## Traits (stdlib)
 

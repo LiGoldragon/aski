@@ -111,20 +111,14 @@ write `(@Width Width)` in the struct.
   F64) (@Vertical F64)}` — would need `Horizontal`/`Vertical`
   newtypes).
 
-### Recommendation
+### Grammar impact (illustrated under Option A — pun on field name)
 
-**Option A — pun on field name.** It's the only option that scales to
-real code without either ugly bindings (B) or ubiquitous newtypes (C).
-The softening of the case rule at StructVariant positions is small and
-localized: inside `{ …fields… }` at pattern position, bindings derive
-from field names (camelCase-of-Pascal), not from field types. This
-reads naturally — you're binding a field *by its role in the struct*,
-not by its raw type identity.
-
-### Grammar impact
+The shape below shows what the grammar would look like under A. B is
+"not viable in practice" per its own analysis above; C reshapes the
+type system rather than pattern grammar.
 
 ```synth
-;; Pattern.synth (with C2 + A)
+;; Pattern.synth (under option A)
 // #WildcardPattern#_
 // #StructPattern#{ :Type *( :FieldName @binding ) }
 // #StructVariantBind#:Variant { *( :FieldName @binding ) }
@@ -134,25 +128,26 @@ not by its raw type identity.
 // #LiteralPattern#:Literal
 ```
 
-The `@binding` slot inside `{ :FieldName @binding }` is *optional* —
-if omitted, default to camelCase-of-FieldName. Full explicit form
-stays available when the author wants to rename.
+Under A, the `@binding` slot inside `{ :FieldName @binding }` could be
+*optional* — if omitted, default to camelCase-of-FieldName. Full
+explicit form stays available when the author wants to rename.
 
-### Semantic question
+### Semantic question (open)
 
-Does this "field-name is instance name" softening of the case rule
-get written into design.md as a formal exception, or is it a stricter
-rule that says "binding inside a field destructure is derived, not
-declared"? I'd write it as the latter — it's not softening, it's
-"bindings inside field destructures don't exist at the case-rule
-level; they're projections of the field role."
+If A is chosen: does this "field-name is instance name" softening of
+the case rule get written into design.md as a formal exception, or as
+a stricter rule that says "binding inside a field destructure is
+derived, not declared — not a case-rule violation, a projection of
+the field role"?
 
-### Decision required before landing
+### Decisions required before landing
 
-1. Which option (A / B / C) is the rule?
+1. Which option — A, B, or C?
 2. If A: is the pun automatic (`{ Width Height }` enough) or does the
    author still have to write the binding explicitly (`{ Width width
    Height height }`) with the grammar just validating the name matches?
+3. If A: framing in design.md — softening the case rule, or a distinct
+   "field destructure binding" rule?
 
 ---
 
@@ -234,14 +229,16 @@ for dispatch. Serialized world state uses concrete types only.
 ### Decision required
 
 Which position? Each lands on a different axis of the "sema is the
-thing" commitment. Position 3 is the cleanest but most restrictive.
-Position 1 is an interesting novel approach. Position 2 is the
-pragmatic-familiar choice but breaks the thesis. Position 4 is a
-compromise.
+thing" commitment. Position 3 is restrictive but preserves the
+invariant cleanly. Position 1 is a novel discriminant-based approach.
+Position 2 is the pragmatic-familiar choice but introduces non-binary
+components. Position 4 is a compromise that preserves sema's invariant
+while keeping source-level convenience.
 
-Until this is decided, the grammar half of S6 (the `?{Trait}` sigil)
-can land safely — it's purely syntactic — but no program can *use* a
-dyn type until the semantics are settled.
+Until this is decided, the grammar half of S6 (the `?{Trait}` sigil
+shape proposed in `small-decisions.md`) is blocked too — landing a
+syntax for dyn before deciding what dyn means invites source that
+won't have a consistent semantic path.
 
 ---
 
@@ -325,23 +322,16 @@ but generates a synthetic type. Compromise.
 
 A vs B vs C.
 
-**If A**: nothing else to design — the "clear" answer in clear.md is
-final.
+**If A**: no grammar work — the shape shown in clear.md §S4 is final.
 
-**If B or C**: need to design the closure-literal grammar: delimiter
-choice, capture syntax, return-type inference or explicit annotation,
-trait selection (Callable vs CallableOnce vs CallableMut — aski would
-need a family).
+**If B or C**: the closure-literal grammar has to be designed:
+delimiter choice, capture syntax, return-type inference or explicit
+annotation, trait selection (Callable vs CallableOnce vs CallableMut —
+aski would likely need a family).
 
-This is the only Wave-C item that isn't technically ready — if A,
-Wave C is straightforward; if B/C, it's a substantial grammar
+This is the only Wave-C item that isn't technically ready to land — if
+A, Wave C is straightforward; if B/C, it's a substantial grammar
 expansion with cascading decisions.
-
-**Recommendation:** A, provisionally. Confirm by writing a few
-typical Rust closure-heavy programs in aski-named-type style and
-seeing if the verbosity is tolerable. If yes, lock A. If the
-programs become unmaintainable, revisit — but A being the default
-means we've shipped a working language without B/C first.
 
 ---
 

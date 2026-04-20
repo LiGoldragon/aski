@@ -1,14 +1,23 @@
-;; Bridge Proposals — Clearly Resolvable
+;; Bridge Proposals — Shapes Sketched, Decisions Still Yours
 ;; Date: 2026-04-20
 ;; Part of [../bridge-proposals.md](../bridge-proposals.md).
-;; These items have no open design questions. Land them in order.
+;;
+;; ⚠️ REFRAMING NOTE. An earlier draft of this file presented items
+;; as "clearly resolvable" with author-written recommendations. Per
+;; [paradigm.md](paradigm.md)'s rule ("do not say aski handles X
+;; unless there's a grammar citation; do not say aski doesn't support
+;; X unless design.md rejects it in prose"), those recommendations
+;; were out of scope — aski's syntax is being designed, not documented.
+;; This pass strips the author-made calls and restores each item to
+;; an open proposal. Li decides which shape lands; alternatives stay
+;; listed where they were ruled out prematurely.
 
 # Contents
 
 1. [Already landed](#already-landed) — C1
-2. [Ready to land now](#ready-to-land-now) — C3, C4, C5, C6, C7, N2, N7, N8, S2, S5, S7, S8, S9, S11, N3, S4 (named-type answer)
+2. [Proposed shapes awaiting approval](#proposed-shapes-awaiting-approval) — C3, C4, C5, C6, C7, N2, N7, N8, S2, S5, S7, S8, S9, S11, N3, S4 (one alternative shown)
 3. [Works with no grammar change](#works-with-no-grammar-change) — N1, N9
-4. [Confirmed OUT](#confirmed-out) — C8, S1, S12, N4, N6
+4. [Proposed OUT — design.md doesn't yet reject these](#proposed-out--designmd-doesnt-yet-reject-these) — C8, S1, S12, N4, N6
 
 ---
 
@@ -47,9 +56,13 @@ Also in `synth-core` (`TagKind::WildcardPattern`, `LiteralToken::Underscore`),
 
 ---
 
-## Ready to land now
+## Proposed shapes awaiting approval
 
-### C5. Division `/`
+*Each item below proposes a grammar shape. Until Li confirms, nothing
+below is settled. "Open question" markers inside each item flag the
+specific calls that were previously baked in as prose.*
+
+### C5. Division `/` — ACCEPTED 2026-04-20
 
 ```rust
 let mean = total / count;
@@ -74,7 +87,7 @@ Adds `TagKind::BinDiv`, `Expr::BinDiv { Left, Right }`. Lexer already emits
 
 ---
 
-### C6. Unary operators
+### C6. Unary operators `-` / `!` — ACCEPTED 2026-04-20 (deref still open below)
 
 ```rust
 let neg = -x;
@@ -104,7 +117,13 @@ let failed = !result.is_ok();
 Adds `TagKind::UnaryNeg`, `UnaryNot` and corresponding Expr variants.
 Adjacency handles `- 1` (unary) vs `a - b` (binary).
 
-Deref `*x` skipped — aski has no raw pointers.
+**Open question — deref `*x`:** an earlier draft said "skipped — aski has
+no raw pointers." That conflates two unrelated questions. Raw pointers
+(`*const T` / `*mut T`) are Unspec'd per [paradigm.md](paradigm.md) —
+not rejected. Deref could still be meaningful for smart-pointer types
+(Box, Rc, etc., via a stdlib Deref trait) even if raw pointers never
+land. Decide: (a) no unary `*` at all; (b) unary `*` dispatches to a
+stdlib `Deref` trait; (c) defer until raw-pointer question is decided.
 
 ---
 
@@ -150,11 +169,21 @@ Rust's rule; to be confirmed before landing.
 
 ---
 
-### C3. LiteralPattern (narrowed — no Bool)
+### C3. LiteralPattern
 
 Folds `StringMatch` into a single LiteralPattern covering Int, Float,
-String, Char. **Bool is OUT** — use variant pattern (`( True )` / `( False )`)
-because `true`/`false` as lowercase tokens would violate the case rule.
+String, Char — at minimum.
+
+**Open question — Bool in LiteralPattern:** an earlier draft called Bool
+"OUT" on the grounds that `true` / `false` as lowercase tokens would
+read as instances of nonexistent types `True` / `False` under the case
+rule. That's a real tension but not a decision. Options: (a) Bool is
+not a LiteralPattern type; matching uses `( True )` / `( False )` variant
+patterns on a Bool enum; (b) `true` / `false` are carved out as special
+literal tokens (breaks the case rule's symmetry); (c) Bool isn't a
+variant enum at the source level — it's a true primitive with its own
+literal form. Related to C4's retraction question and the bare `true`
+/ `false` literal-token question in N8.
 
 ```rust
 fn status_name(code: u32) -> &'static str {
@@ -189,13 +218,16 @@ fn status_name(code: u32) -> &'static str {
 
 ---
 
-### C4. if / if-let / while-let (retraction: drop `true`/`false` carve-out)
+### C4. if / if-let / while-let
 
-**Retraction:** the original bridge proposal suggested lexer-carving `true`
-and `false` as Bool literal tokens. Under the strict case rule, that's
-wrong — a lowercase `true` would claim to be an instance of a type `True`,
-which doesn't exist. Bool remains a variant enum; the idiom is variant
-patterns. No grammar change needed.
+**Open question — Bool representation:** an earlier draft retracted the
+`true` / `false` literal-token carve-out on the grounds that lowercase
+tokens would violate the case rule. That's a coherent argument but not
+a settled call. The form shown below assumes Bool-is-a-variant-enum;
+if Bool becomes a primitive with literal tokens instead (C3 alt-c),
+this section's idiom changes. Decide in C3 first, then revisit here.
+
+The form assuming Bool-as-variant-enum:
 
 ```rust
 if self.ready {
@@ -221,7 +253,9 @@ if let Some(value) = self.result {
 |)
 ```
 
-Purely documentation. `syntax-v020.aski` gains an explicit if/else example.
+Under the Bool-as-variant-enum answer, no grammar change — documentation
+only; `syntax-v020.aski` gains an explicit if/else example. Under any
+other answer, this section is revisited.
 
 ---
 
@@ -246,6 +280,12 @@ it'll map Never to whatever Rust form is current.
 ---
 
 ### N7. Doc comments
+
+**Open question — sigil:** proposal below uses `;;;` (line-start triple-
+semicolon). Alternative: reuse block comments if introduced; or a
+different sigil. `;;;` has the merit of extending the existing `;;`
+comment convention with one more semicolon to mean "this comment carries
+structure." Confirm or propose alternative.
 
 ```rust
 /// A bounded FIFO queue.
@@ -430,8 +470,17 @@ let board: [Cell; BOARD_SIZE * BOARD_SIZE];
 Zero grammar change. Add `("Array", 2)` to `Primitive::all()`. Second
 arg must const-eval to U32 — that's what S8 enables.
 
-No array-literal expression syntax (use `Array:init` / `Array:from`).
-Slice types `[T]` skipped (Vec + view-types cover the ground).
+**Open question — array literal expression:** Rust has `[1, 2, 3]` as
+an expression form. This proposal has none; construction goes via
+`Array:init` / `Array:from` methods only. Decide: (a) no literal form,
+methods only; (b) add a literal form and pick a delimiter.
+
+**Open question — slice types `[T]`:** Unspec'd per
+[paradigm.md](paradigm.md). An earlier draft said "skipped (Vec +
+view-types cover the ground)." That's a plausible position but a
+user call, not mine. Decide: (a) Unspec'd indefinitely; (b) explicitly
+rejected in design.md with Vec + view-types as the replacement; (c)
+accepted with a distinct primitive.
 
 ---
 
@@ -484,8 +533,15 @@ let m: Result<u32, _> = i64_value.try_into();
 ```
 
 Zero grammar change. Stdlib traits `From` / `Into` across numeric
-primitives. Narrowing conversions have explicit method names so the
-lossy semantics are visible at the call site.
+primitives.
+
+**Open question — narrowing conversions:** an earlier draft proposed
+"explicit method names so the lossy semantics are visible at the call
+site" (e.g., `U8:truncate(wide)`). Alternatives: (a) explicit named
+methods per lossy op (truncate, saturate, wrap) — what the example
+shows; (b) a single `TryFrom` trait returning Result for any conversion
+that could lose data; (c) both, with lossy named ops as shortcuts.
+Which framing?
 
 ---
 
@@ -505,8 +561,16 @@ fn tick(&mut self) {
 ])
 ```
 
-Zero grammar change. Confirmed OUT as bare `x = y` or `x += y` syntax.
-Stdlib primitive trait:
+Zero grammar change under this proposal.
+
+**Open question — bare `=` and compound assignment:** paradigm.md lists
+these as Unspec'd — not rejected. An earlier draft said "Confirmed OUT
+as bare `x = y` or `x += y` syntax." That's a design call pending Li's
+decision. Options: (a) never accept `=` at statement position — mutation
+via stdlib trait methods only, as shown below; (b) accept `~name = expr`
+(reusing the `~` mutation marker) as shorthand; (c) accept `x += y`
+family as operator-sugar that desugars to trait methods. The stdlib
+trait sketch below assumes (a).
 
 ```aski
 @[| Counter $Value
@@ -592,19 +656,22 @@ for self. Update the Param.synth header comment; no code change.
 
 ---
 
-## Confirmed OUT
+## Proposed OUT — design.md doesn't yet reject these
 
-### C8. Inherent impls — spec silent, proposal is OUT
+*Every item below was previously marked "Confirmed OUT" but paradigm.md
+classifies it as Unspec'd (or user-preference only). Each is a proposal
+to add a prose rejection to design.md, pending Li's decision. Until
+design.md gains a citation, these remain Unspec'd, not OUT.*
 
-**Status: spec silent.** design.md §No Free Functions forbids free
-functions; it does NOT explicitly forbid inherent impls. Root.synth
-has no grammar rule for them today. Proposal below is "add this
-rejection to design.md"; until then, C8 is a grammar gap, not a
-design-level OUT.
+### C8. Inherent impls — spec silent, rejection proposed
 
-Proposed rule: every method belongs to a named trait. For one-off
-capabilities, declare a single-method trait named after the
-capability.
+**Current status (per paradigm.md):** Unspec'd. design.md §No Free
+Functions forbids free functions; it does NOT explicitly forbid
+inherent impls. Root.synth has no grammar rule for them today.
+
+**Proposed rejection** (to add to design.md, pending approval): every
+method belongs to a named trait. For one-off capabilities, declare a
+single-method trait named after the capability.
 
 ```rust
 impl Counter { fn tick(&mut self) { self.count += 1; } }
@@ -620,17 +687,17 @@ impl Counter { fn tick(&mut self) { self.count += 1; } }
 ]]
 ```
 
-Proposed addition to design.md §No Free Functions: "And no inherent
-impls — every method cluster is a named trait."
+Proposed addition to design.md §No Free Functions (pending Li's approval):
+"And no inherent impls — every method cluster is a named trait."
 
 ---
 
-### S1. Type aliases — spec silent, user-preference OUT
+### S1. Type aliases — spec silent, user-preference OUT (pending formalization)
 
-**Status: spec silent.** design.md doesn't mention type aliases.
-User (2026-04-19) stated aliases aren't a bridge target because
-newtypes preserve type identity while aliases weaken it. Record as
-user-preference OUT; design.md doesn't formally reject aliases yet.
+**Current status (per paradigm.md):** Unspec'd. design.md doesn't mention
+type aliases. User stated preference 2026-04-19: aliases aren't a bridge
+target because newtypes preserve type identity while aliases weaken it.
+Preference noted but not yet written into design.md.
 
 ```rust
 type FileId = u64;   // identity-free alias
@@ -659,11 +726,18 @@ enum Message {
 
 ---
 
-### N4. Finer-grained visibility — deferred
+### N4. Finer-grained visibility — open
 
-`@` = public; default = private. Public/private is sufficient pre-1.0.
-Future extension path: `@(PlaceName)` for scoped visibility (`@(Crate)`,
-`@(Super)`, module-path scopes). No action today.
+**Current status (per paradigm.md):** Proposed. `@` = public, default
+private is Landed. Rust's `pub(crate)` / `pub(super)` / `pub(in path)`
+have no aski form.
+
+**Open question:** is public/private the permanent model, or does aski
+eventually need scoped visibility? If eventually: a plausible extension
+path is `@(PlaceName)` for scoped visibility (`@(Crate)`, `@(Super)`,
+module-path scopes) — reusing origins' place-name intuition. An earlier
+draft said "Public/private is sufficient pre-1.0"; that's an opinion,
+not Li's call.
 
 ---
 

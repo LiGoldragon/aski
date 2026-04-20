@@ -217,15 +217,15 @@ Resolves only if C2/S10 resolve.
 
 # Items that are OUT by design (listed so we don't re-raise)
 
-- Tuples → §No Tuples (design.md).
-- Native infinite `loop {}` → §No Native Infinite-Loop Form (design.md).
-- Higher-kinded types, dependent types → §Generics (design.md).
-- Free functions → §No Free Functions (design.md).
-- Keywords → §Delimiter-First (design.md).
-- Shadowing same name twice in a scope → §Scopes Are a Tree (design.md).
-- unsafe / raw pointers / unions → not in the rkyv contract.
-- Macros → replaced by sema + proc-macro architecture.
-- async / await → not in scope for v1 (unstated but consistent with "compile to Rust, defer stability").
+Only items with a prose citation in design.md qualify. Items below lack
+a citation; see §Unconsulted Claude decisions below for the others.
+
+- Tuples → design.md §No Tuples.
+- Native infinite `loop {}` → design.md §No Native Infinite-Loop Form.
+- Higher-kinded types, dependent types → design.md §Generics.
+- Free functions → design.md §No Free Functions.
+- Keywords → design.md §Delimiter-First.
+- Shadowing same name twice in a scope → design.md §Scopes Are a Tree.
 
 # Items already acknowledged open in RESTART-CONTEXT §13
 
@@ -234,6 +234,136 @@ Resolves only if C2/S10 resolve.
 - Pattern guards.
 - Where clauses.
 - Method-local generics (partially covered).
+
+# Unconsulted Claude decisions — now open gaps
+
+*An earlier pass through these bridge documents baked in positions
+Claude had no standing to take. Per [bridge/paradigm.md](bridge/paradigm.md):
+"do not say aski handles X unless there's a grammar citation; do not
+say aski doesn't support X unless design.md rejects it in prose."
+The items below violated that rule and are now re-opened. Each is a
+gap in the spec that requires Li's decision; bridge-doc prose should
+not presume one.*
+
+## Decisions presented as settled that weren't
+
+### U1. Deref `*x` — was "skipped because aski has no raw pointers"
+clear.md §C6 previously asserted deref was out because raw pointers
+are out. Two unrelated questions: raw pointers are Unspec'd
+(paradigm.md), and deref could still be meaningful for smart-pointer
+types (Box, Rc) via a stdlib `Deref` trait even if raw pointers never
+land. Options: (a) no unary `*` at all; (b) unary `*` dispatches to a
+stdlib `Deref`; (c) defer until raw-pointer question is decided.
+
+### U2. Bool in LiteralPattern — was "OUT because case rule"
+clear.md §C3 previously asserted Bool was out of LiteralPattern because
+lowercase `true` / `false` tokens would violate the case rule. Options:
+(a) Bool matched only via `( True )` / `( False )` variant patterns on
+a Bool enum; (b) `true` / `false` carved out as primitive literal
+tokens despite the case rule; (c) Bool reframed as a primitive with a
+literal form, not a variant enum. Connected to U3 and U7.
+
+### U3. `true` / `false` as literal tokens — was "retracted"
+clear.md §C4 and §N8 previously retracted the carve-out, citing the
+case rule. Open — depends on U2's framing. If Bool becomes a primitive
+with literal form, carve-out is needed; if Bool stays a variant enum,
+carve-out stays rejected.
+
+### U4. Array literal expression syntax — was "no, methods only"
+clear.md §S11 previously said arrays would be constructed via
+`Array:init` / `Array:from` only, with no `[1, 2, 3]` literal form.
+That's a design call, not a forced consequence. Options: (a) method-
+only construction; (b) accept a literal form and pick a delimiter.
+
+### U5. Slice types `[T]` — was "skipped"
+clear.md §S11 previously asserted `[T]` was skipped because "Vec +
+view-types cover the ground." Unspec'd per paradigm.md. Options:
+(a) stay Unspec'd; (b) formally reject in design.md with Vec +
+view-types as replacement; (c) accept as distinct primitive.
+
+### U6. Narrowing conversions — was "explicit method names so lossy semantics are visible"
+clear.md §S7 previously picked explicit lossy method names (truncate,
+saturate, wrap) as the narrowing idiom. Options: (a) explicit named
+methods per lossy op; (b) single `TryFrom` returning Result; (c) both,
+with lossy names as shortcuts.
+
+### U7. Bare `=` and compound assignment — was "Confirmed OUT"
+clear.md §N3 previously said `x = y` / `x += y` were OUT, mutation
+done via stdlib trait methods only. Unspec'd per paradigm.md. Options:
+(a) never accept `=` — mutation via methods only; (b) accept
+`~name = expr` (reusing the mutation marker); (c) accept `x += y`
+family as operator-sugar desugaring to trait methods.
+
+### U8. Doc comment sigil — was "`;;;`"
+clear.md §N7 picked `;;;` (line-start triple-semicolon) as the doc-
+comment form. Plausible — extends the `;;` comment convention — but
+is a sigil choice that's yours. Alternatives: a block-doc form; a
+different leading marker.
+
+### U9. Inherent impls rejection — was "Confirmed OUT"
+clear.md §C8 previously classified this as Confirmed OUT and proposed
+the rule "every method belongs to a named trait." design.md §No Free
+Functions addresses free functions but says nothing about inherent
+impls. Unspec'd per paradigm.md until you approve adding the rejection
+to design.md.
+
+### U10. Finer-grained visibility — was "public/private is sufficient pre-1.0"
+clear.md §N4 previously asserted pre-1.0 sufficiency as the reason for
+deferring scoped visibility (`pub(crate)` family). Proposed per
+paradigm.md. Options: (a) public/private permanent; (b) `@(PlaceName)`
+scoped-visibility extension eventually; (c) defer indefinitely.
+
+### U11. Struct destructuring — was "Option A recommended"
+bridge/big-decisions.md previously carried a recommendation for
+Option A (pun on field name) in the C2+S10+N10 destructuring
+question. Three viable options remain — A, B (not viable per its own
+analysis), or C. Plus sub-questions if A (automatic vs explicit
+pun; case-rule framing in design.md).
+
+### U12. Closure philosophy — was "Position A provisionally"
+bridge/big-decisions.md §S4 previously recommended Position A (named-
+types-always) as the provisional choice. Three positions remain — A
+(no sugar), B (inline closure sugar desugaring to synthetic types), C
+(named shorthand with explicit capture). Each has different character.
+
+### U13. break / continue sigil spelling — was "`^^` / `^~` / `^'Label`"
+bridge/small-decisions.md §S3 previously recommended `^^` for
+break-with-value, `^~` for continue, `^'Label` for labeled break. All
+alternatives (`^!`, `^@`, a dedicated non-composed sigil) remain on
+the table.
+
+### U14. dyn sigil — was "`?{Trait}`"
+bridge/small-decisions.md §S6 previously recommended `?{Trait}` as
+the sigil. Alternatives (`&{Trait}` with conflict, `{^Trait}` with
+conflict, a new delimiter pair) listed. Syntax call still yours; the
+semantic question in big-decisions.md §S6 is also open.
+
+### U15. Enum discriminant lookahead — was "accept"
+bridge/small-decisions.md §N5 previously recommended accepting one-
+token lookahead inside enum bodies to disambiguate
+`@VariantName = @Literal` from other variant forms. Open
+interpretive question: does "No Complex Lookahead" (design.md) target
+multi-token backtracking specifically, or cover single-token
+disambiguation too?
+
+### U16. Char literal delimiter — was "backtick"
+bridge/small-decisions.md previously recommended backtick `` `x` ``.
+Alternatives (apostrophe with origin-sigil collision, prefix `c"x"`,
+suffix `"x"c`, other) remain.
+
+### U17. Methods-over-operators rubric
+bridge-proposals.md rubric rule #5 asserts "Methods over operators for
+bit ops, casts, assignment, and similar. Stdlib traits, not new
+syntax." That rule presupposes the outcomes of S5 (bitwise), S7
+(cast), and N3 (assignment). It should be downgraded from rubric to
+"proposed direction pending those decisions."
+
+### U18. "unsafe / raw pointers / unions / macros / async" as OUT-by-design
+gap-analysis.md's own OUT-by-design list previously included these
+without a design.md citation. Each is Unspec'd, not OUT, until
+design.md gains prose.
+
+---
 
 # Summary — ranked recommendations for review
 

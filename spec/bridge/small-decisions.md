@@ -85,9 +85,12 @@ Is `^^` the right spelling for break-with-value, or would `^!`
 continue spelling, or would `~^` work? Is `^'Label` natural or should
 labeled-break have its own non-composed sigil?
 
-**Recommendation:** `^^` / `^~` / `^'Label` as proposed. `^^` reads
-"exit harder"; `^~` reuses `~` as restart-modifier; `^'` reuses the
-origin sigil for code-place.
+Candidate readings (all proposed, none selected):
+- `^^` reads "exit harder" — composes with existing `^` early-return
+- `^~` reuses `~` as restart-modifier
+- `^'Label` reuses the origin sigil for code-place
+- `^!` emphasizes exit via negation/force
+- `^@` reads "exit at [location]" but collides with visibility `@`
 
 ---
 
@@ -125,15 +128,18 @@ let boxed: Box<dyn Callable<u32, u32>> = Box::new(…);
 Is `?{Trait}` the right sigil for dyn, or would one of these read
 better?
 
-- `&{Trait}` — but plain `&Type` is already borrow; merging dyn into
-  borrow conflates two orthogonal concerns.
+- `?{Trait}` — `?` is unused at type position (postfix-only elsewhere
+  as try-unwrap); reads "unknown-but-satisfies"; single-sigil addition.
+- `&{Trait}` — plain `&Type` is already borrow; merging dyn into borrow
+  conflates two orthogonal concerns.
 - `{^Trait}` — `^` is early-return, bad overload.
 - New delimiter pair — all six are allocated; creating a seventh costs
   design clarity.
 
-**Recommendation:** `?{Trait}` as proposed. `?` is unused at type
-position (postfix-only elsewhere as try-unwrap); it reads "unknown-but-
-satisfies"; single-sigil addition doesn't burden the grammar.
+Any of these is viable syntactically; the call is yours. And note that
+whichever sigil lands, the semantic question in
+[big-decisions.md §S6](big-decisions.md) is still open — deciding
+syntax alone doesn't unblock writing dyn-using programs.
 
 ---
 
@@ -185,17 +191,18 @@ entirely?
 Enum.synth already branches on the *shape* of the next token after the
 variant name (`(` → DataVariant, `{` → StructVariant, `(|` → NestedEnum,
 `{|` → NestedStruct, nothing → BareVariant). The new case adds `=` as
-one more "next-token" alternative. Materially the same cost.
+one more "next-token" alternative — materially the same cost.
 
-**Recommendation:** accept. "No complex lookahead" (design.md §No
-Complex Lookahead) targets multi-token backtracking, not single-token
-disambiguation past a variant name.
+Interpretive question you decide: does design.md §No Complex Lookahead
+target multi-token backtracking specifically, or does it cover
+single-token disambiguation too? The current rule is silent on that
+distinction.
 
-If rejected: discriminants remain unspec'd. (The aski-core/sema layout
+If rejected: discriminants remain Unspec'd. The aski-core/sema layout
 rule for variants without explicit discriminants is not currently in
 design.md — commonly assumed to be ordinal but not spec-grounded.
 Anything beyond "no explicit discriminant form exists" would be
-speculation.)
+speculation.
 
 ---
 
@@ -226,19 +233,22 @@ let tab = '\t';
 
 ### Decision to make
 
-Confirm backtick. If rejected, pick between the other candidates.
+Pick a delimiter for char literals. Trade-offs:
 
-**Recommendation:** backtick. Zero existing conflict; compact; visually
-distinct from string literal `"..."` and origin `'Place`.
+- Backtick `` `x` `` — zero existing conflict; compact; visually
+  distinct from string `"..."` and origin `'Place`.
+- Apostrophe `'x'` — familiar from C / Rust but collides with the
+  origin sigil after an identifier (`foo'Place` vs `foo'a'`).
+- Typed prefix `c"x"` — pushes tag logic into the lexer; distinctive.
+- Typed suffix `"x"c` — same.
+- Something else.
 
 ---
 
-# Ranking
+# Order (once each decision lands)
 
-Land in this order once nods land:
-
-1. **Char literal backtick** — unblocks N8 (lexer literal work) fully.
+1. **Char literal delimiter** — unblocks N8 (lexer literal work) fully.
 2. **N5 discriminant lookahead** — binary accept/skip.
-3. **S3 sigil spellings** — unblocks break/continue landing.
-4. **S6 `?{Trait}` syntax** — unblocks the grammar half of dyn;
-   semantics still blocked on `big-decisions.md §S6`.
+3. **S3 break/continue sigils** — unblocks break/continue landing.
+4. **S6 dyn sigil** — unblocks the grammar half of dyn; semantics
+   still blocked on `big-decisions.md §S6`.

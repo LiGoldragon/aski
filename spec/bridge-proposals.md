@@ -27,11 +27,13 @@ Each file carries concrete Rust / aski / synth examples per item.
 | Bucket | Items | Status |
 |--------|-------|--------|
 | **Landed** | C1 Wildcard `_` | ✅ shipped across synth-core, askicc, aski-core |
-| **Clearly resolvable** | C3, C4, C5, C6, C7, N2, N7, N8, S2, S4 (named-type), S5, S7, S8, S9, S11, N3 | Ready to land |
+| **Accepted 2026-04-20** | C5 Division, C6 Unary `-` / `!` | pending grammar + aski-core landing |
+| **Proposed shapes, awaiting approval** | C3, C4, C7, N2, N7, N8, S2, S4 (named-type), S5, S7, S8, S9, S11, N3 | each item carries open sub-questions; see clear.md |
 | **Works already** | N1 (place-based origins), N9 (doc only) | Documentation task |
-| **Confirmed OUT** | C8, S1, S12, N4, N6 | Permanent |
-| **Small decisions** | S3 sigils, S6 `?{…}`, N5 lookahead, char backtick | One-nod each |
-| **Big decisions** | C2+S10+N10 destructuring, S6 semantics, S4 closures | Open design |
+| **Proposed OUT — design.md doesn't yet reject** | C8, S1, S12, N4, N6 | not permanent until design.md gains prose |
+| **Small open decisions** | S3 sigils, S6 `?{…}`, N5 lookahead, char delimiter | sigil/spelling calls, each with alternatives listed |
+| **Big open decisions** | C2+S10+N10 destructuring, S6 semantics, S4 closures | open design space |
+| **Unconsulted Claude decisions** | U1–U18 | see [gap-analysis.md §Unconsulted Claude decisions](gap-analysis.md#unconsulted-claude-decisions--now-open-gaps) |
 
 # Rubric (carried forward — every proposal must respect)
 
@@ -47,8 +49,11 @@ Each file carries concrete Rust / aski / synth examples per item.
    `~`=mutable, `$`=type param, `'`=origin/place, `^`=early return
    (landed; "exit-family" extension proposed in bridge/small-decisions.md §S3),
    `?`=try-unwrap (landed, postfix) / dyn-dispatch prefix (proposed in §S6).
-5. **Methods over operators** for bit ops, casts, assignment, and
-   similar. Stdlib traits, not new syntax.
+5. **Methods over operators — proposed direction, not settled.** For
+   bit ops, casts, assignment, and similar, stdlib traits (not new
+   operator syntax) is the proposed direction. This is the position
+   behind §S5, §S7, §N3 — but the decisions themselves are still
+   open (see [gap-analysis.md §U17](gap-analysis.md#u17-methods-over-operators-rubric)).
 6. **Compile to Rust (bootstrap).** Features Rust can't express
    (HKT, dependent types) stay OUT per design.md §Generics. Features
    Rust has but sema's binary model doesn't yet have a design for
