@@ -1,0 +1,39 @@
+{
+  "name": "tree-sitter-aski",
+  "version": "0.17.0",
+  "description": "Tree-sitter grammar for the Aski language (v0.17)",
+  "main": "bindings/node",
+  "keywords": [
+    "parser",
+    "tree-sitter",
+    "aski"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/li/tree-sitter-aski"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "nan": "^2.18.0"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.22.0"
+  },
+  "scripts": {
+    "build": "tree-sitter generate && tree-sitter build",
+    "test": "tree-sitter test",
+    "parse": "tree-sitter parse"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.aski",
+      "file-types": [
+        "aski"
+      ],
+      "highlights": "queries/highlights.scm",
+      "indents": "queries/indents.scm",
+      "locals": "queries/locals.scm",
+      "injection-regex": "aski"
+    }
+  ]
+}
