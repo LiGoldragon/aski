@@ -723,7 +723,7 @@ enum Message {
 
 ```aski
 @(Message
-  {Move (@X I32) (@Y I32)})    ;; StructVariant with named fields
+  {Move (Horizontal I32) (Vertical I32)})    ;; StructVariant with named fields
 ```
 
 ---

@@ -40,7 +40,7 @@ coincide.
 ```aski
 @(Shape
   (Circle F64)                                  ;; DataVariant — bare F64 payload
-  {Rectangle (@Width F64) (@Height F64)})        ;; StructVariant — two F64 fields
+  {Rectangle (Width F64) (Height F64)})          ;; StructVariant — two F64 fields
 ```
 
 For `Circle`, under the strict reading: `( Circle f64 )`. Under a

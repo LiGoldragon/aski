@@ -143,7 +143,7 @@ pub enum Shape {
 ;; .types
 @(Shape
   (Circle F64)
-  {Rectangle (@Width F64) (@Height F64)})
+  {Rectangle (Width F64) (Height F64)})
 ```
 
 ## Enum — discriminants (U15 proposed)

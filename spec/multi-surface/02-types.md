@@ -70,7 +70,7 @@ enum Shape {
 
 ```aski
 @(Shape
-  {Rectangle (@Width F64) (@Height F64)})
+  {Rectangle (Width F64) (Height F64)})
 ```
 
 Struct variant with named fields. aski rejects tuple variants per
