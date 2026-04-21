@@ -89,8 +89,8 @@ pub struct Secret { key: String, nonce: u64 }
 ```
 
 ```aski
-;; .types
-@{Secret (key String) (nonce U64)}
+;; .types — fields are Pascal (compile-time structural); no @ = private
+@{Secret (Key String) (Nonce U64)}
 ```
 
 ## Tuple struct — OUT (except newtype)
@@ -988,8 +988,8 @@ All impls live in `.impls`. Concrete examples:
 ```aski
 ;; stdlib/types/vec.types
 @{Vec {$Value}
-  (items {Array $Value Capacity})
-  (count U32)}
+  (Items {Array $Value Capacity})
+  (Count U32)}
 
 ;; stdlib/traits/iterator.traits
 @[| Iterator

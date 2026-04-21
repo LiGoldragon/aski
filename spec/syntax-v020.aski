@@ -130,8 +130,8 @@
 ;; Fields default private. @ prefix exposes them.
 
 @{Point (@Horizontal F64) (@Vertical F64)}   ;; public struct, public fields
-@{Counter (@Count U32) (cache U32)}           ;; public struct, Count public, cache private
-@{SecretData (key String) (nonce U64)}        ;; public struct, all fields private
+@{Counter (@Count U32) (Cache U32)}           ;; public struct, Count public, Cache private
+@{SecretData (Key String) (Nonce U64)}        ;; public struct, all fields private
 {InternalPoint (X F64) (Y F64)}                ;; private struct
 
 ;; generic struct

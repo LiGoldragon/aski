@@ -199,10 +199,12 @@ pub struct Counter {
 ```
 
 ```aski
-@{Counter (@Count U32) (cache U32)}
+@{Counter (@Count U32) (Cache U32)}
 ```
 
-`(@FieldName Type)` public; `(FieldName Type)` private.
+`(@FieldName Type)` public; `(FieldName Type)` private. Field names
+are Pascal regardless of visibility — fields are compile-time
+structural per design.md §PascalCase and camelCase.
 
 ## Self-typed fields (when field name IS the type name)
 

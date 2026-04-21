@@ -357,8 +357,8 @@ uniformly at every declaration point and field slot:
 (InternalEnum Ready Done)                     ;; private enum
 
 @{Point (@Horizontal F64) (@Vertical F64)}    ;; public struct, public fields
-@{Counter (@Count U32) (cache U32)}            ;; Count public, cache private
-{SecretData (key String)}                      ;; private struct
+@{Counter (@Count U32) (Cache U32)}            ;; Count public, Cache private
+{SecretData (Key String)}                      ;; private struct
 
 @(| Counter @U32 |)                            ;; public newtype, wrapped public (transparent)
 @(| OpaqueCount U32 |)                          ;; public newtype, wrapped private (opaque)
