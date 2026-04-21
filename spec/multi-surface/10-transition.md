@@ -44,7 +44,7 @@ The first win: pull impls out of `.aski`.
 
 1. Add `.impls` surface:
    - askicc gets `source/impls/` with `Root.synth` accepting
-     `[@ImplName Trait Target [body]]` form (named impl grammar).
+     `@[ImplName Trait Target [body]]` form (named impl grammar; @ outside = public, bare Pascal inside at position 0 = impl name).
    - synth-core adds `SurfaceKind::Impls`.
    - aski-core needs no changes (TraitImpl type already exists).
 

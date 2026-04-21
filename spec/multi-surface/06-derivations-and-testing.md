@@ -155,7 +155,7 @@ Derivation "DebugStruct" from derive-common.derivations applies:
   all fields (F64) impl Debug
   
 Generated impl:
-  [@DerivedDebug Debug Point [
+  @[DerivedDebug Debug Point [
     (debug &self String [ ... expanded body ... ])
   ]]
 ```

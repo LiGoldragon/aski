@@ -118,7 +118,7 @@ Why it's useful:
 File extension: `.impls`
 
 What it contains:
-- Named trait implementations: `[@ImplName Trait Target [body]]`
+- Named trait implementations: `@[ImplName Trait Target [body]]` (@ = public; bare Pascal at position 0 = impl name)
 - Method bodies (the only surface where method bodies live)
 - Local declarations within method bodies
 - Module header
