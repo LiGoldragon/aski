@@ -1,0 +1,217 @@
+## ENUMS — Name.enum files
+
+Filename grammar:
+  [_]EnumName.enum
+Filename = EnumName (Pascal). Extension = kind. Leading `_` =
+private.
+
+Content grammar (the EnumBody):
+  ?<GenericSlot> *<Variant>
+
+Variant forms survive from v0.20: bare, data, struct-variant,
+nested enum (|...|), nested struct {|...|}, and — pending U15 —
+discriminant [VariantName Literal].
+
+Bare variants ------------------------------------------------
+
+Filesystem path:
+  Element.enum
+
+```aski
+Fire
+Earth
+Air
+Water
+
+```
+Rust equivalent:
+  pub enum Element { Fire, Earth, Air, Water }
+
+v0.20 wrote: @(Element Fire Earth Air Water)
+v0.21 moves the `@` (public), the `(` (root delim), and the
+`Element` (name) into the path. The file's content is the
+variant list.
+
+Private enum -------------------------------------------------
+
+Filesystem path:
+  _InternalState.enum
+
+```aski
+Loading
+Ready
+Done
+
+```
+v0.20: (InternalState Loading Ready Done)
+
+Data variants and struct variants ---------------------------
+
+Filesystem path:
+  Shape.enum
+
+```aski
+(Circle F64)
+{Rectangle (Width F64) (Height F64)}
+(Triangle F64)
+
+```
+Rust equivalent:
+  pub enum Shape {
+      Circle(f64),
+      Rectangle { width: f64, height: f64 },
+      Triangle(f64),
+  }
+
+Data variant: (VariantName Type). Struct variant:
+{VariantName (Field Type) (Field Type)}. Struct-variant fields
+are Pascal and inherit enum visibility — no @ on them.
+
+Generic enum -------------------------------------------------
+
+Filesystem path:
+  Option.enum
+
+```aski
+{$Value}
+(Some $Value)
+None
+
+```
+Rust equivalent:
+  pub enum Option<T> { Some(T), None }
+
+First token is `{` — that's the generic slot. After the slot,
+the variant list. First-token decidable.
+
+Filesystem path:
+  Result.enum
+
+```aski
+{$Output $Failure}
+(Ok $Output)
+(Err $Failure)
+
+```
+Rust equivalent:
+  pub enum Result<T, E> { Ok(T), Err(E) }
+
+Bounded generic enum ----------------------------------------
+
+Filesystem path:
+  Cached.enum
+
+```aski
+{$Value{Clone Debug}}
+Empty
+(Loaded $Value)
+
+```
+Rust equivalent:
+  pub enum Cached<T: Clone + Debug> { Empty, Loaded(T) }
+
+Nested enum + nested struct inside enum body ----------------
+
+Filesystem path:
+  Token.enum
+
+```aski
+(Ident String)
+(Number I64)
+(| Delimiter LParen RParen LBracket RBracket LBrace RBrace |)
+Newline
+
+```
+Rust equivalent:
+  pub enum Token {
+      Ident(String),
+      Number(i64),
+      Delimiter(Delimiter),  // with its own enum
+      Newline,
+  }
+  pub enum Delimiter { LParen, RParen, LBracket, ... }
+
+Access a nested variant via chained path:
+  Token:Delimiter:LParen
+
+Inline nesting is kept in v0.21 because identity is still
+hierarchical: the Delimiter enum is scoped under Token. You
+CAN split it out to `Token/Delimiter.enum` for a deeper path
+(see NESTED SPLIT below) — that's an author choice, not a rule.
+
+Filesystem path:
+  Event.enum
+
+```aski
+Ping
+(Retry U32)
+{| Config (Timeout U32) (MaxRetries U32) |}
+
+```
+Rust equivalent:
+  pub enum Event { Ping, Retry(u32) }
+  pub struct Event::Config { timeout: u32, max_retries: u32 }
+
+`{|Config ...|}` = nested struct scoped under Event. Access
+via `Event:Config`. Again, can be split to `Event/Config.struct`.
+
+Enum with discriminant variants (N5 / U15) -----------------
+
+Filesystem path:
+  HttpStatus.enum
+
+```aski
+[Ok 200]
+[NotFound 404]
+[ServerError 500]
+
+```
+Rust equivalent:
+  #[repr(u16)]
+  pub enum HttpStatus {
+      Ok = 200,
+      NotFound = 404,
+      ServerError = 500,
+  }
+
+Uses `[VariantName Literal]` at enum-body position — `[` is
+a free first-token at enum-body (no other variant form uses it
+at that position). First-token decidable.
+
+Grammar (Enum.synth adds alternative):
+  #DiscriminantVariant#[@VariantName @Literal]
+
+;; MERGED FROM N5 — shape per bridge/clear.md §N5 and
+;; small-decisions.md §N5.
+;; PICK-AND-MERGE — Li to confirm [Ok 200] shape; see
+;; gap-analysis.md §U15.
+
+Nested split (optional) -------------------------------------
+
+When a nested variant grows its own methods or becomes large
+enough to deserve its own editable file, it can be split out.
+The parent's file references it by bare Pascal; the engine
+resolves to the sub-path.
+
+Filesystem paths:
+  Shape.enum                         ;; outer
+  Shape/Rectangle.struct             ;; extracted struct variant
+
+Shape.enum content:
+
+```aski
+(Circle F64)
+Rectangle                              ;; reference to Shape/Rectangle.struct
+(Triangle F64)
+
+```
+Shape/Rectangle.struct content:
+
+```aski
+(Width F64)
+(Height F64)
+
+```
+Rust equivalent: same as before — a struct-variant inside
+Shape. Splitting is a filesystem concern; the type identity
+`Shape:Rectangle` is unchanged.

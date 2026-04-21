@@ -1,0 +1,164 @@
+## LITERALS (in body position, inside files)
+
+Literals appear inside body grammar — const files, struct
+construction, match arms, local decls. The forms are
+unchanged from v0.20.
+
+Inside a .const file:
+  F64 3.14159                      ;; Float
+  U32 2026                         ;; Int (decimal)
+  String "hello"                   ;; Str
+  Bool True                        ;; Bool (variant-style)
+  Unit Unit                        ;; Unit (zero-info)
+
+Signed:
+  I32 -42                          ;; Int with unary minus (C6)
+  F64 0.25
+  String "line one\nline two"      ;; escape sequences
+
+Literal lexer extensions (N8 — MERGED 2026-04-21) ----------
+
+The lexer accepts the following integer / string forms. Zero
+grammar change. (Char-literal and bool-literal items dropped
+from the earlier N8 bundle — chars go through the Char library
+U16; `true`/`false` remains open as U3.)
+
+Integer literals:
+  U32 0xFF_FF_FF_00                ;; hex (0x prefix)
+  U8  0b0010_1100                  ;; binary (0b prefix)
+  U32 0o755                        ;; octal (0o prefix)
+  U64 7_900_000_000                ;; numeric separators
+
+String literals:
+  "\n"                             ;; escape sequences in normal strings
+  """C:\Users\li\projects"""        ;; raw triple-string (no escapes)
+  """
+    Line one.
+    Line two.
+  """                               ;; multi-line raw
+
+Inside a .const file using these:
+
+  ;; Mask.const
+  U32 0xFF_FF_FF_00
+
+  ;; Flag.const
+  U8  0b0010_1100
+
+  ;; Perm.const
+  U32 0o755
+
+  ;; Pop.const
+  U64 7_900_000_000
+
+  ;; WindowsPath.const
+  String """C:\Users\li\projects"""
+
+;; MERGED FROM N8 — see gap-analysis.md §N8 and
+;; bridge/clear.md §N8. Char-literal form SUPERSEDED by U16
+;; (Char library). Bool-literal carve-out remains open (U3) —
+;; see outliers-v021.md.
+
+## LOCAL DECLARATIONS — the five shapes
+
+All locals use `()` at statement position inside method bodies.
+The shape inside picks the variant. Unchanged from v0.20.
+
+  (name)                     Canonical  — declare-only, type = Pascal-of-name
+  (name Type)                TypeOnly    — new local wrapping Type, uninitialized
+  (name Type:method(args))   TypeInit    — wrapping + initialized
+  (name :method(args))       Construct   — instance via Pascal-of-name:method
+  (name expr)                BindExpr    — bind name to expression
+
+Inside Radius~Bindings.impl (hypothetical demo):
+
+  (demo &self [
+    (counter)                          ;; Canonical
+    (buffer {Vec U8})                  ;; TypeOnly
+    (origin Point:new(0.0 0.0))        ;; TypeInit
+    (radius :new(5.0))                 ;; Construct
+    (total counter + 1)                ;; BindExpr
+    [~counter.set(total)]              ;; Mutation — ExprStmt, not LocalDecl
+    counter
+  ])
+
+## REFERENCES, BORROWS, ORIGINS, VIEWS
+
+Type-position and expression-position forms, unchanged from
+v0.20.
+
+Borrow in type position (a method signature):
+  (describe &self Quality)
+  (emit ~&self ~&out Writer)
+
+Origin in type position:
+  (get &'Map self &key String String)
+  (leftmost &'self.Left self String)
+  (concat &'(Left Right) node Rope)
+
+View type (partial-field borrow):
+  (tick ~&self {| Count |} U32)
+  (summary &self {| Count Name |} String)
+
+Borrow in expression position (inside a method body):
+  (shared &rawLocal)
+  (mutRef ~&rawLocal)
+
+Borrow of path expression (C7 — MERGED 2026-04-21) ----------
+
+Borrows accept place expressions — `self`, `:instance`, and any
+depth of `.FieldName` suffixes. Method calls are NOT place
+expressions (matches Rust).
+
+  (describe &self String [
+    self.summarize(&self.Header &self.Body.Inner)
+  ])
+
+  (mutate ~&self [
+    self.commit(~&self.Buffer)
+  ])
+
+Grammar:
+
+  ;; PlaceExpr.synth — new dialect
+  <PlaceAtom> *#PlaceField#.:FieldName
+
+  ;; PlaceAtom.synth — new dialect
+  #SelfPlace#self
+  #InstancePlace#:instance
+
+  ;; ExprAtom.synth — BorrowExpr/MutBorrowExpr now take PlaceExpr
+  #BorrowExpr#_&_?<Origin>?<ViewType><PlaceExpr>
+  #MutBorrowExpr#_~__&_?<Origin>?<ViewType><PlaceExpr>
+
+Aski-core restructures `BorrowExpr`/`MutBorrowExpr` to hold a
+`PlaceExpr` (self or instance, with zero-or-more field steps)
+instead of a bare `InstanceName`. Scope: `&foo.method()` is NOT
+a place expression — method calls produce values, not places.
+
+;; MERGED FROM C7 — see gap-analysis.md §C7 and
+;; bridge/clear.md §C7.
+
+## GENERIC SYNTAX
+
+Unchanged from v0.20. Appears in .enum / .struct / .newtype /
+.trait / .impl files as an optional body-starting `{...}` slot.
+
+  {$Value}                          simple slot
+  {$Value{Clone Debug}}             bounded
+  {$Left $Right}                    multi-param
+  {$Value{Clone} SuperTrait}        mixed with super-traits (traits)
+  ${Clone Debug}                    bounds-as-name (no semantic name)
+
+Method-level generics use `?{...}` after the method name,
+before the parameter list:
+
+  (into {$Target} &self {$Target})
+  (apply ?{$Output} &self &fn {Callable self:Item $Output} $Output)
+
+Type application uses `{Constructor Arg1 Arg2 ...}`:
+
+  {Vec U32}
+  {Option {Vec String}}
+  {Result U32 ConversionError}
+  {Map String {Vec Token}}

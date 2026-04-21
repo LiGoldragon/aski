@@ -1,0 +1,266 @@
+## TRAITS — Name.trait files
+
+Filename grammar:
+  [_]TraitName.trait
+
+Content grammar:
+  ?<GenericsAndSuperBounds> *<TraitItem>
+
+The first token is `{` if the trait has a generic slot and/or
+super-trait bounds; otherwise the first token is a trait item.
+First-token decidable.
+
+TraitItem forms:
+  Pascal bare       → associated type declaration
+  (camelName ...)   → method signature (with optional default body)
+  {| @Name Type |}  → associated const declaration (optional default)
+
+Minimal trait -----------------------------------------------
+
+Filesystem path:
+  Describe.trait
+
+```aski
+(describe &self Quality)
+
+```
+Rust equivalent:
+  pub trait Describe { fn describe(&self) -> Quality; }
+
+v0.20: @[| Describe (describe &self Quality) |]
+v0.21: path carries the @, the [|, and the name. The file
+holds items.
+
+Trait with default method body -----------------------------
+
+Filesystem path:
+  Greeter.trait
+
+```aski
+(name &self String)
+(greet &self String [
+  StringFormat:combine("Hello, " self.name "!")
+])
+
+```
+Rust equivalent:
+  pub trait Greeter {
+      fn name(&self) -> String;
+      fn greet(&self) -> String {
+          format!("Hello, {}!", self.name())
+      }
+  }
+
+Trait with associated type ---------------------------------
+
+Filesystem path:
+  Iterator.trait
+
+```aski
+Item
+(next ~&self {Option self:Item})
+
+```
+Rust equivalent:
+  pub trait Iterator {
+      type Item;
+      fn next(&mut self) -> Option<Self::Item>;
+  }
+
+Trait with multiple associated types + method-level generics
+
+Filesystem path:
+  Graph.trait
+
+```aski
+Node
+Edge
+(nodes &self {Vec self:Node})
+(edges &self &from self:Node {Vec self:Edge})
+(apply ?{$Output} &self &transform {Callable self:Node $Output} {Vec $Output})
+
+```
+Rust equivalent:
+  pub trait Graph {
+      type Node;
+      type Edge;
+      fn nodes(&self) -> Vec<Self::Node>;
+      fn edges(&self, from: &Self::Node) -> Vec<Self::Edge>;
+      fn apply<U>(&self, transform: &dyn Fn(&Self::Node) -> U) -> Vec<U>;
+  }
+
+Method-level generic slot `?{$Output}` comes after the method
+name, before its parameters.
+
+Trait with associated const (S9 — MERGED 2026-04-21) ------
+
+Filesystem path:
+  BoundedQueue.trait
+
+```aski
+Item
+{| Capacity         U32 |}
+{| DefaultTimeoutMs U64 30000 |}
+(push ~&self :value self:Item)
+
+```
+Rust equivalent:
+  pub trait BoundedQueue {
+      type Item;
+      const CAPACITY: u32;
+      const DEFAULT_TIMEOUT_MS: u64 = 30_000;
+      fn push(&mut self, value: Self::Item);
+  }
+
+TraitItem forms now include:
+  {| @AssocName Type |}             ;; required assoc const
+  {| @AssocName Type ?Default |}    ;; with default expr
+
+First-token decidable at TraitItem position:
+  `{|` → AssocConst, `(` → method, Pascal bare → AssocType.
+
+;; MERGED FROM S9 — see gap-analysis.md §S9 and
+;; bridge/clear.md §S9.
+
+Trait with super-traits ------------------------------------
+
+Filesystem path:
+  Ord.trait
+
+```aski
+{PartialOrd Eq}
+(compare &self &other Self Ordering)
+
+```
+Rust equivalent:
+  pub trait Ord: PartialOrd + Eq {
+      fn compare(&self, other: &Self) -> Ordering;
+  }
+
+First token is `{` — super-trait/generic slot. Bare Pascal
+names inside the slot are super-traits; `$`-prefixed names
+are generic parameters. Items follow.
+
+Trait with generics AND super-traits AND associated types --
+
+Filesystem path:
+  TotalOrd.trait
+
+```aski
+{$Value{PartialOrd Eq}}
+Output
+(cmp &self &other self:Output)
+
+```
+Rust equivalent:
+  pub trait TotalOrd<T: PartialOrd + Eq> {
+      type Output;
+      fn cmp(&self, other: &Self) -> Self::Output;
+  }
+
+Generic trait (From) ---------------------------------------
+
+Filesystem path:
+  From.trait
+
+```aski
+{$Source}
+(from :value $Source Self)
+
+```
+Rust equivalent:
+  pub trait From<Source> { fn from(value: Source) -> Self; }
+
+Trait with method-level generic + bound --------------------
+
+Filesystem path:
+  Collect.trait
+
+```aski
+(into {$Target} &self {$Target})
+
+```
+Rust equivalent (method-level generic):
+  pub trait Collect {
+      fn into<Target>(&self) -> Target;
+  }
+
+Trait with bounded generic in a method sig -----------------
+
+Filesystem path:
+  Serialize.trait
+
+```aski
+(toBytes &self &data $Value{Clone Debug} {Vec U8})
+
+```
+Rust equivalent:
+  pub trait Serialize {
+      fn to_bytes<T: Clone + Debug>(&self, data: &T) -> Vec<u8>;
+  }
+
+Marker trait (empty body) ----------------------------------
+
+Filesystem path:
+  Send.trait
+(no tokens in body)
+
+Rust equivalent:
+  pub trait Send {}
+
+Trait with origin in signature -----------------------------
+
+Filesystem path:
+  Borrow.trait
+
+```aski
+{$Borrowed}
+(borrow &self &'self $Borrowed)
+
+```
+Rust equivalent:
+  pub trait Borrow<Borrowed> {
+      fn borrow<'a>(&'a self) -> &'a Borrowed;
+  }
+
+Trait with associated-type bound (projection) --------------
+
+Filesystem path:
+  IntoIterator.trait
+
+```aski
+Item
+IntoIter {Iterator (Item self:Item)}
+(intoIter self self:IntoIter)
+
+```
+Rust equivalent:
+  pub trait IntoIterator {
+      type Item;
+      type IntoIter: Iterator<Item = Self::Item>;
+      fn into_iter(self) -> Self::IntoIter;
+  }
+
+Full-featured trait ----------------------------------------
+
+Filesystem path:
+  Service.trait
+
+```aski
+{$Request{Clone} Sync Clone}
+Response
+Error {Display Debug}
+{| DefaultTimeoutMs U64 30000 |}
+(call    &self :request $Request {Result self:Response self:Error})
+(timeout &self U64 [Self:DefaultTimeoutMs])
+
+```
+Rust equivalent:
+  pub trait Service<Request: Clone> : Sync + Clone {
+      type Response;
+      type Error: Display + Debug;
+      const DEFAULT_TIMEOUT_MS: u64 = 30_000;
+      fn call(&self, request: Request)
+          -> Result<Self::Response, Self::Error>;
+      fn timeout(&self) -> u64 { Self::DEFAULT_TIMEOUT_MS }
+  }

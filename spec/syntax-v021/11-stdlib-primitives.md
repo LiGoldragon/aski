@@ -1,0 +1,111 @@
+## NEVER PRIMITIVE (N2 — MERGED 2026-04-21)
+
+`Never` is a zero-arity primitive for functions that do not
+return normally. Mirrors Rust's `!`.
+
+  (panic &msg String Never)
+  (runForever ~&self Never [| true [self.tick] |])
+
+Rust equivalent:
+  fn panic(msg: &str) -> ! { … }
+  fn run_forever(&mut self) -> ! { loop { self.tick() } }
+
+Zero grammar change. Add `("Never", 0)` to `Primitive::all()`.
+Sema representation: a zero-variant enum (one plausible shape;
+rsc maps to `!` in Rust projection when it lands).
+
+;; MERGED FROM N2 — see gap-analysis.md §N2 and
+;; bridge/clear.md §N2.
+
+## 'Static AND LIFETIME GENERICS (N1 — MERGED 2026-04-21)
+
+Rust's lifetime generics (`<'a>` on fns) are covered by aski's
+place-based origins (see REFERENCES, BORROWS, ORIGINS, VIEWS
+above). `'Static` is a conventional PlaceName for program-root
+scope — already a valid `PlaceRef` under the origin grammar.
+
+  (longest &'(left right) left String
+           &'(left right) right String
+           &'(left right) String [ … ])
+
+  (findName &id U32 &'Static String [
+    GlobalTable.lookup(id)
+  ])
+
+Rust equivalent:
+  fn longest<'a>(left: &'a str, right: &'a str) -> &'a str { … }
+  fn find_name(id: u32) -> &'static str { GLOBAL_TABLE.lookup(id) }
+
+No grammar change — `'Static` is a place name by convention.
+Every other "lifetime generic" scenario maps to a place-union
+origin.
+
+;; MERGED FROM N1 — see gap-analysis.md §N1 and
+;; bridge/clear.md §N1.
+
+## CHAR LIBRARY — Char:Upper:A etc. (U16 landing)
+
+Char has no literal syntax. Char is an enum library where each
+individual character is a variant accessed by chained path.
+
+The filesystem layout under II-L:
+
+  Char.enum                           ;; the top-level enum
+    Upper                             ;; nested enum (letters A-Z)
+    Lower                             ;; nested enum (letters a-z)
+    Digit                             ;; nested enum (digits 0-9 as words: Zero, One, ...)
+    Whitespace                        ;; nested enum (Space, Tab, Newline, CarriageReturn, ...)
+    Control                           ;; nested enum
+    Punct                             ;; nested enum (Tilde, Comma, Period, ...)
+    Bracket                           ;; nested enum (LParen, RParen, LBracket, ...)
+    (Code (Codepoint U32))            ;; fall-through for non-categorized Unicode
+
+Char.enum content:
+
+```aski
+(| Upper A B C D E F G H I J K L M N O P Q R S T U V W X Y Z |)
+(| Lower A B C D E F G H I J K L M N O P Q R S T U V W X Y Z |)
+(| Digit Zero One Two Three Four Five Six Seven Eight Nine |)
+(| Whitespace Space Tab Newline CarriageReturn FormFeed VerticalTab |)
+(| Control Null Bell Backspace Escape ... |)
+(| Punct Tilde Comma Period Question Exclamation Colon Semicolon Apostrophe QuotationMark Hyphen Underscore ... |)
+(| Bracket LParen RParen LBracket RBracket LBrace RBrace LAngle RAngle |)
+(Code (Codepoint U32))
+
+```
+Rust equivalent (roughly):
+  pub enum Char {
+      Upper(UpperLetter),   // UpperLetter: A, B, C, ..., Z
+      Lower(LowerLetter),
+      Digit(DigitName),
+      Whitespace(WhitespaceKind),
+      ...
+      Code { codepoint: u32 },
+  }
+
+Usage in source:
+
+  (c Char:Upper:A)                    ;; the letter A
+  (space Char:Whitespace:Space)
+  (sigma Char:Code(0x03C3))           ;; Greek small sigma (non-categorized)
+
+The case of a letter is carried by the outer variant
+(Upper/Lower) — no case-rule carve-out needed. There is no
+`'A'` or `` `A` `` literal. Chars are a library, not a
+primitive literal form.
+
+Under II-L, this library can be split:
+
+  stdlib/
+    Char.enum                         ;; the head: variants by category
+    Char/
+      Upper.enum                      ;; A..Z as bare variants
+      Lower.enum                      ;; a..z
+      Digit.enum                      ;; Zero..Nine
+      Whitespace.enum
+      Control.enum
+      Punct.enum
+      Bracket.enum
+
+;; OPEN — final category list (Upper/Lower/Digit/Whitespace/
+;; Control/Punct/Bracket provisional); see gap-analysis.md §U16.
