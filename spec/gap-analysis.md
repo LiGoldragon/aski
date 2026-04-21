@@ -372,6 +372,45 @@ gap-analysis.md's own OUT-by-design list previously included these
 without a design.md citation. Each is Unspec'd, not OUT, until
 design.md gains prose.
 
+### U19. Native infinite-loop form — "No Native Infinite-Loop Form" was Claude-authored
+design.md §No Native Infinite-Loop Form previously asserted infinite
+loops must be written as `while true`, with prose argument about
+delimiter budget. Li did not confirm this. Infinite loops are NOT
+fundamentally problematic to implement. Options:
+- (a) Keep current `[| true body |]` as sole form (verbose, awkward).
+- (b) Optional condition in `[||]` via a prefix marker
+  (`[| ? cond body |]` while; `[| body |]` infinite).
+- (c) Two dialects — WhileLoop `[| cond body |]` + InfiniteLoop via
+  a seventh delimiter pair (costs the 6-delimiter budget).
+- (d) Content-shape dispatch inside `[||]` (borderline on §No Complex
+  Lookahead depending on interpretation).
+- (e) Method-style — `Loop:forever [body]` via a stdlib trait, no
+  grammar change (fits methods-over-operators tilt if U17 lands).
+
+Decide: which form — or leave Unspec'd with workaround (a)?
+
+### U20. Higher-kinded types — design.md's "No HKT" inference
+design.md §We Compile to Rust and §Generics rule 6 assert "no
+higher-kinded types" because "Rust can't express HKT." The "compile
+to Rust" fact is solid; the "therefore no HKT" inference is less so:
+- Rust has GATs (stable 1.65) — limited HKT-like mechanism.
+- aski could have HKT at its layer and desugar via monomorphization
+  or GATs.
+- "Compile to Rust" constrains sema output, not aski source
+  expressiveness.
+
+Li did not confirm the OUT. Decide: (a) keep HKT OUT with updated
+prose (acknowledging Rust's GATs but committing to rank-1 for
+simplicity); (b) accept HKT at aski layer with desugaring strategy;
+(c) leave Unspec'd pending real use case.
+
+### U21. Dependent types — "(yet)" clause in design.md
+design.md §We Compile to Rust says "No dependent types (yet)." The
+"yet" suggests this was framed as deferrable, not permanent. Li did
+not confirm as OUT. Decide: (a) permanent OUT; (b) deferred with a
+trigger (when does aski get dependent types? what would they express?);
+(c) Unspec'd indefinitely.
+
 ---
 
 # Summary — ranked recommendations for review

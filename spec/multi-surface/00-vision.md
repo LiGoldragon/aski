@@ -173,15 +173,19 @@ paradigm commitment:
 | Modules, visibility | module header + `@` visibility |
 | unsafe | proposed `.unsafe-impls` surface — deliberate boundary |
 
-What's left OUT by paradigm (and not by accident):
+What's left OUT by paradigm (confirmed by Li):
 
 - Free functions (§No Free Functions)
-- Native `loop {}` form (§No Native Infinite-Loop Form)
 - Nameless tuples (§No Tuples)
-- Higher-kinded types (§Generics)
-- Dependent types (§Generics, "yet")
 - Keywords in source (§Delimiter-First)
 - Re-shadowing the same name (§Scopes Are a Tree)
+
+Claimed as OUT in design.md but **not confirmed by Li** — now open
+questions tracked in gap-analysis.md §U19–U21:
+
+- Native `loop {}` form (U19)
+- Higher-kinded types (U20)
+- Dependent types (U21)
 
 Everything else fits somewhere.
 
