@@ -124,6 +124,29 @@ semantic identity of the parameter:
 Two different things always have different names. `$LeftValue`
 and `$RightValue` are different even if they share qualities.
 
+**Aski rejects shorthands as ambiguous and actually incorrect.**
+Single-letter or cryptic placeholder names — `x`, `y`, `n`, `v`,
+`tmp`, `buf` — carry no meaning without surrounding context, and
+"surrounding context" is exactly what a reader shouldn't have to
+reconstruct to understand a name. Every occurrence of `x` forces
+the reader to trace back: which `x`? The axis? The placeholder?
+The accumulator? A name that needs to be disambiguated from its
+context is not a name — it's a label. Aski is a language of names.
+
+The only permitted single-letter names are those that **literally
+refer to a letter** (e.g., `Char:Upper:A`, or `$R` where R is
+explicitly the letter R being discussed). Coordinate axes aren't
+this: nobody reads `X` without saying "x axis" — the full name is
+what's meant, and aski requires it written. Use `Horizontal` /
+`Vertical` / `Depth` for coordinates. Use `Count` / `Index` /
+`Cursor` for numeric positions. Use `Value` / `Item` / `Element`
+for payload names. Use `Left` / `Right` / `Source` / `Target` for
+directional names.
+
+The cost is a few extra characters at the declaration site. The
+gain is that every use site reads unambiguously without mental
+reconstruction. This is a deliberate cost aski pays for clarity.
+
 
 ## Delimiter-First
 
