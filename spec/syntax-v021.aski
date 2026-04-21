@@ -1,0 +1,2369 @@
+;; Aski v0.21 — by example.
+;;
+;; Principle: Identity-Is-Location (II-L).
+;;   A name is a place. A place is a path. A path is a filesystem
+;;   path. Therefore the filesystem is the program's identifier graph,
+;;   and source files hold only what has no name of its own — their
+;;   bodies.
+;;
+;;   Crisp form: identity is location; location is path; a source
+;;   file is what a path refers to — its body, and nothing else.
+;;
+;; This file is a by-example reference for v0.21. Every block is
+;; introduced by its filesystem path (what the file is called,
+;; where it lives) followed by the file's contents (what goes
+;; inside). The two together are one definition.
+;;
+;; Shifts from v0.20 under II-L:
+;;   * Module header `(Name [Imports])` disappears — directory is
+;;     the module; imports live in a per-directory `imports` file.
+;;   * `@` visibility sigil on root declarations disappears —
+;;     filename prefix `_` = private; no prefix = public.
+;;   * Outer root delimiters around declarations disappear — the
+;;     file IS the delimiter. Content = body only.
+;;   * Per-kind file extensions replace first-token-decidability
+;;     at the root: `.enum`, `.struct`, `.newtype`, `.const`,
+;;     `.trait`, `.impl`, `.effect`, `.derivation`, `.test-impl`,
+;;     `.bench-impl`, `.exec`, `.rfi`.
+;;   * Impl filename grammar carries trait + target + impl name
+;;     at the path level: `Trait[Args]~Target.impl`.
+;;
+;; What survived unchanged from v0.20:
+;;   * Type expression grammar (Named, AppliedType, GenericParam,
+;;     Borrowed, MutBorrowed, SelfAssoc, origins, view types)
+;;   * Local-declaration 5-shape grammar at statement position
+;;   * Match grammar (|...|), loop [|...|], iteration {|...|},
+;;     ExprStmt [...], or-pattern [Variant1 Variant2],
+;;     early-return ^expr, try-unwrap expr?
+;;   * Struct construction { :Type (:Field Expr) ... }
+;;   * Path syntax: Type:Variant, Type:method(args), self:AssocType
+;;   * Case rule: Pascal = compile-time structural, camel = runtime.
+;;     Struct fields remain Pascal regardless of visibility.
+;;
+;; Newly landed (see v0.21 update notes):
+;;   * C5 Division `/` (accepted 2026-04-20)
+;;   * C6 Unary `-` and `!` (accepted 2026-04-20); deref `*` stays open
+;;   * U16 Char-as-nested-enum: `Char:Upper:A` and similar
+;;     (no char literal syntax)
+;;
+;; Delimiters (v0.21 body-internal — unchanged from v0.20):
+;;   ()      Categorical single thing (local decl, typed field,
+;;           match arm, call args, variant with payload)
+;;   []      Evaluation (block, InlineEval, ExprStmt, or-pattern)
+;;   {}      Construction (StructConstruct, type application,
+;;           generic slot, bound set, view type)
+;;   (||)    Match body (|...|), Nested enum (|...|)
+;;   [||]    Loop [|cond body|]
+;;   {||}    Iteration {|src.binding body|}, Const value (body-
+;;           internal), View type {|Field|}, Nested struct {|...|}
+;;
+;; Sigils (v0.21):
+;;   :   path                                   &   borrow
+;;   ~   mutable modifier                        $   type parameter
+;;   '   origin                                  ^   early return
+;;   ?   try-unwrap (postfix on Result/Option)
+;;   @   field visibility (inside struct bodies only; root @ retired)
+;;   ;;  line comment
+;;
+;; The rest of this file is arranged by concern. Each section
+;; shows:
+;;   1. The filesystem layout that defines the object.
+;;   2. The file's content (pure body).
+;;   3. The Rust equivalent where instructive.
+;;   4. Brief notes on what v0.20 had that v0.21 replaces.
+
+
+;; =============================================================
+;; FILESYSTEM LAYOUT — orientation
+;; =============================================================
+;;
+;; A project under II-L is organized by directory. Each directory
+;; is a module. Each file inside is one public object (or, if its
+;; name starts with `_`, one private helper object). Files carry
+;; per-kind extensions.
+;;
+;; Example project layout:
+;;
+;;   myproject/
+;;     imports                          ;; per-directory imports
+;;     Element.enum                     ;; public enum Element
+;;     Quality.enum                     ;; public enum Quality
+;;     Shape.enum                       ;; public enum Shape
+;;     Point.struct                     ;; public struct Point
+;;     Counter.struct                   ;; public struct Counter
+;;     _CacheSlot.struct                ;; PRIVATE helper struct
+;;     MaxSigns.const                   ;; public const MaxSigns
+;;     Describe.trait                   ;; trait Describe
+;;     Iterator.trait                   ;; trait Iterator
+;;     Describe~Element.impl            ;; impl Describe for Element
+;;     Iterator[Token]~TokenReader.impl ;; impl Iterator for TokenReader
+;;                                      ;;   with associated Item=Token
+;;     FileReader~LocalFs.effect        ;; effectful impl
+;;     DebugStruct.derivation           ;; derivation rule for Debug
+;;     shapes/                          ;; sub-module `shapes`
+;;       imports                        ;; shapes-specific imports,
+;;                                      ;;   stacks on parent's imports
+;;       Rectangle.struct
+;;       Circle.struct
+;;     _internal/                       ;; PRIVATE sub-module (all
+;;                                      ;;   files visible only inside
+;;                                      ;;   the parent directory)
+;;       Helper.struct
+;;
+;; Every name in the program corresponds to a path on disk.
+;; No source file names itself. No source file lists its
+;; module or its visibility. Those channels live in the path.
+
+
+;; =============================================================
+;; IMPORTS FILE
+;; =============================================================
+;;
+;; Each directory has at most one `imports` file. Its grammar is
+;; a list of bracketed lines:
+;;
+;;   [SourceModule ImportedName ImportedName ...]
+;;
+;; Each line lists one source module (by path-resolvable name) and
+;; the names imported from it. Sub-directories inherit the parent
+;; directory's imports; a sub-directory's `imports` adds to, does
+;; not replace, the parent's.
+
+;; Filesystem path:
+;;   myproject/imports
+
+;; File content:
+[core Element Quality Shape Point]
+[collections Vec Map]
+[text String CharIterator]
+
+;; No module header. No name. No visibility. This file is an
+;; imports list, identified by its fixed filename `imports`.
+
+;; A sub-directory can add to the parent:
+;;
+;;   myproject/shapes/imports
+[text StringFormat]
+[collections Set]
+
+;; In `myproject/shapes/`, the names visible are the union:
+;;   Element Quality Shape Point Vec Map String CharIterator
+;;   StringFormat Set
+
+
+;; =============================================================
+;; ENUMS — Name.enum files
+;; =============================================================
+;;
+;; Filename grammar:
+;;   [_]EnumName.enum
+;; Filename = EnumName (Pascal). Extension = kind. Leading `_` =
+;; private.
+;;
+;; Content grammar (the EnumBody):
+;;   ?<GenericSlot> *<Variant>
+;;
+;; Variant forms survive from v0.20: bare, data, struct-variant,
+;; nested enum (|...|), nested struct {|...|}, and — pending U15 —
+;; discriminant [VariantName Literal].
+
+;; Bare variants ------------------------------------------------
+
+;; Filesystem path:
+;;   Element.enum
+Fire
+Earth
+Air
+Water
+
+;; Rust equivalent:
+;;   pub enum Element { Fire, Earth, Air, Water }
+;;
+;; v0.20 wrote: @(Element Fire Earth Air Water)
+;; v0.21 moves the `@` (public), the `(` (root delim), and the
+;; `Element` (name) into the path. The file's content is the
+;; variant list.
+
+;; Private enum -------------------------------------------------
+
+;; Filesystem path:
+;;   _InternalState.enum
+Loading
+Ready
+Done
+
+;; v0.20: (InternalState Loading Ready Done)
+
+;; Data variants and struct variants ---------------------------
+
+;; Filesystem path:
+;;   Shape.enum
+(Circle F64)
+{Rectangle (Width F64) (Height F64)}
+(Triangle F64)
+
+;; Rust equivalent:
+;;   pub enum Shape {
+;;       Circle(f64),
+;;       Rectangle { width: f64, height: f64 },
+;;       Triangle(f64),
+;;   }
+;;
+;; Data variant: (VariantName Type). Struct variant:
+;; {VariantName (Field Type) (Field Type)}. Struct-variant fields
+;; are Pascal and inherit enum visibility — no @ on them.
+
+;; Generic enum -------------------------------------------------
+
+;; Filesystem path:
+;;   Option.enum
+{$Value}
+(Some $Value)
+None
+
+;; Rust equivalent:
+;;   pub enum Option<T> { Some(T), None }
+;;
+;; First token is `{` — that's the generic slot. After the slot,
+;; the variant list. First-token decidable.
+
+;; Filesystem path:
+;;   Result.enum
+{$Output $Failure}
+(Ok $Output)
+(Err $Failure)
+
+;; Rust equivalent:
+;;   pub enum Result<T, E> { Ok(T), Err(E) }
+
+;; Bounded generic enum ----------------------------------------
+
+;; Filesystem path:
+;;   Cached.enum
+{$Value{Clone Debug}}
+Empty
+(Loaded $Value)
+
+;; Rust equivalent:
+;;   pub enum Cached<T: Clone + Debug> { Empty, Loaded(T) }
+
+;; Nested enum + nested struct inside enum body ----------------
+
+;; Filesystem path:
+;;   Token.enum
+(Ident String)
+(Number I64)
+(| Delimiter LParen RParen LBracket RBracket LBrace RBrace |)
+Newline
+
+;; Rust equivalent:
+;;   pub enum Token {
+;;       Ident(String),
+;;       Number(i64),
+;;       Delimiter(Delimiter),  // with its own enum
+;;       Newline,
+;;   }
+;;   pub enum Delimiter { LParen, RParen, LBracket, ... }
+;;
+;; Access a nested variant via chained path:
+;;   Token:Delimiter:LParen
+;;
+;; Inline nesting is kept in v0.21 because identity is still
+;; hierarchical: the Delimiter enum is scoped under Token. You
+;; CAN split it out to `Token/Delimiter.enum` for a deeper path
+;; (see NESTED SPLIT below) — that's an author choice, not a rule.
+
+;; Filesystem path:
+;;   Event.enum
+Ping
+(Retry U32)
+{| Config (Timeout U32) (MaxRetries U32) |}
+
+;; Rust equivalent:
+;;   pub enum Event { Ping, Retry(u32) }
+;;   pub struct Event::Config { timeout: u32, max_retries: u32 }
+;;
+;; `{|Config ...|}` = nested struct scoped under Event. Access
+;; via `Event:Config`. Again, can be split to `Event/Config.struct`.
+
+;; Enum with discriminant variants (U15 — OPEN) ----------------
+
+;; ;; OPEN — see gap-analysis.md §U15 (enum discriminant lookahead)
+;; ;; Proposed shape under v0.21:
+;;
+;;   HttpStatus.enum:
+;;     [Ok 200]
+;;     [NotFound 404]
+;;     [ServerError 500]
+;;
+;; ;; Uses `[VariantName Literal]` at enum-body position — free in
+;; ;; v0.20 grammar and consistent with U15's proposal. Status:
+;; ;; proposed, not landed. See multi-surface/02-types.md too.
+
+;; Nested split (optional) -------------------------------------
+
+;; When a nested variant grows its own methods or becomes large
+;; enough to deserve its own editable file, it can be split out.
+;; The parent's file references it by bare Pascal; the engine
+;; resolves to the sub-path.
+
+;; Filesystem paths:
+;;   Shape.enum                         ;; outer
+;;   Shape/Rectangle.struct             ;; extracted struct variant
+
+;; Shape.enum content:
+(Circle F64)
+Rectangle                              ;; reference to Shape/Rectangle.struct
+(Triangle F64)
+
+;; Shape/Rectangle.struct content:
+(Width F64)
+(Height F64)
+
+;; Rust equivalent: same as before — a struct-variant inside
+;; Shape. Splitting is a filesystem concern; the type identity
+;; `Shape:Rectangle` is unchanged.
+
+
+;; =============================================================
+;; STRUCTS — Name.struct files
+;; =============================================================
+;;
+;; Filename grammar:
+;;   [_]StructName.struct
+;;
+;; Content grammar:
+;;   ?<GenericSlot> *<Field>
+;;
+;; Field forms (unchanged from v0.20):
+;;   (FieldName Type)        typed field, private
+;;   (@FieldName Type)       typed field, public
+;;   FieldName               self-typed, private (field name IS type)
+;;   @FieldName              self-typed, public
+;;
+;; Field names are Pascal. The `@` sigil marks PUBLIC at the
+;; field level. It remains in source because per-field visibility
+;; is a channel that lives inside the body, not at the path level
+;; (a single struct file can mix public and private fields; the
+;; path only carries the struct's own visibility).
+
+;; Public struct with public fields ----------------------------
+
+;; Filesystem path:
+;;   Point.struct
+(@Horizontal F64)
+(@Vertical F64)
+
+;; Rust equivalent:
+;;   pub struct Point { pub horizontal: f64, pub vertical: f64 }
+;;
+;; v0.20: @{Point (@Horizontal F64) (@Vertical F64)}
+
+;; Public struct with mixed-visibility fields -----------------
+
+;; Filesystem path:
+;;   Counter.struct
+(@Count U32)
+(Cache U32)
+
+;; Rust equivalent:
+;;   pub struct Counter { pub count: u32, cache: u32 }
+;;
+;; Count is public (readable from outside); Cache is private
+;; (accessible only within the module's own code).
+
+;; Public struct with all-private fields (opaque) -------------
+
+;; Filesystem path:
+;;   SecretData.struct
+(Key String)
+(Nonce U64)
+
+;; Rust equivalent:
+;;   pub struct SecretData { key: String, nonce: u64 }
+
+;; Private struct ---------------------------------------------
+
+;; Filesystem path:
+;;   _InternalPoint.struct
+(Horizontal F64)
+(Vertical F64)
+
+;; Rust equivalent:
+;;   struct InternalPoint { horizontal: f64, vertical: f64 }
+;;
+;; The leading `_` in the filename marks the struct itself as
+;; private. Per-field `@` still applies inside.
+
+;; Generic struct ---------------------------------------------
+
+;; Filesystem path:
+;;   Pair.struct
+{$Left $Right}
+(@LeftValue $Left)
+(@RightValue $Right)
+
+;; Rust equivalent:
+;;   pub struct Pair<Left, Right> {
+;;       pub left_value: Left,
+;;       pub right_value: Right,
+;;   }
+
+;; Bounded generic struct -------------------------------------
+
+;; Filesystem path:
+;;   Container.struct
+{$Value{Clone Debug}}
+(@Items {Vec $Value})
+(@Count U32)
+
+;; Rust equivalent:
+;;   pub struct Container<T: Clone + Debug> {
+;;       pub items: Vec<T>,
+;;       pub count: u32,
+;;   }
+
+;; Self-typed fields (field name IS the type) -----------------
+
+;; Filesystem path:
+;;   Drawing.struct
+(@Shapes {Vec Shape})
+@Name
+
+;; Rust equivalent:
+;;   pub struct Drawing { pub shapes: Vec<Shape>, pub name: Name }
+;;
+;; `@Name` — public self-typed field. The field named `Name` is
+;; of type `Name`. Preserved from v0.20.
+
+;; Unit struct (empty body) -----------------------------------
+
+;; Filesystem path:
+;;   Marker.struct
+;; (file contains no non-comment tokens)
+
+;; Rust equivalent:
+;;   pub struct Marker;
+
+;; Struct with nested enum + nested struct --------------------
+
+;; Filesystem path:
+;;   Page.struct
+(@Content String)
+(| Orientation Portrait Landscape |)
+{| Margin (Top U32) (Bottom U32) (Left U32) (Right U32) |}
+
+;; Rust equivalent:
+;;   pub struct Page { pub content: String }
+;;   pub enum Page::Orientation { Portrait, Landscape }
+;;   pub struct Page::Margin { top: u32, bottom: u32, left: u32, right: u32 }
+;;
+;; Nested types are scoped under Page. Access:
+;;   Page:Orientation:Portrait
+;;   Page:Margin
+
+;; Struct with origin-bearing fields (place tracking) --------
+
+;; Filesystem path:
+;;   Borrowed.struct
+{$Value}
+(@Source &'self $Value)
+(@Count U32)
+
+;; Rust equivalent (roughly):
+;;   pub struct Borrowed<'a, T> { pub source: &'a T, pub count: u32 }
+;;
+;; The `'self` origin says "this borrow originates at the struct
+;; instance itself" — Polonius-style place annotation.
+
+
+;; =============================================================
+;; NEWTYPES — Name.newtype files
+;; =============================================================
+;;
+;; Filename grammar:
+;;   [_]NewtypeName.newtype
+;;
+;; Content grammar:
+;;   ?<GenericSlot> <Type>
+;;
+;; The wrapped type is a single Type expression. Transparency
+;; (whether the wrapped value is publicly readable) is marked
+;; with `@` on the wrapped type.
+
+;; Transparent newtype (wrapped value public) -----------------
+
+;; Filesystem path:
+;;   Counter.newtype
+@U32
+
+;; Rust equivalent:
+;;   pub struct Counter(pub u32);
+;;
+;; `@U32` = wrapped type is public. Consumers can read the
+;; underlying U32.
+
+;; Opaque newtype (wrapped value private) ---------------------
+
+;; Filesystem path:
+;;   OpaqueCount.newtype
+U32
+
+;; Rust equivalent:
+;;   pub struct OpaqueCount(u32);
+
+;; Private newtype --------------------------------------------
+
+;; Filesystem path:
+;;   _InternalCount.newtype
+@U32
+
+;; Rust equivalent:
+;;   struct InternalCount(pub u32);
+;;
+;; Leading `_` on filename = newtype itself is private to the
+;; module. The wrapped U32 is publicly readable WITHIN the module
+;; (because `@` marks transparency at the wrapped-type level).
+
+;; Generic newtype --------------------------------------------
+
+;; Filesystem path:
+;;   Items.newtype
+{$Value}
+@{Vec $Value}
+
+;; Rust equivalent:
+;;   pub struct Items<T>(pub Vec<T>);
+;;
+;; Generic slot, then the wrapped type expression.
+
+;; Newtype for a physical unit --------------------------------
+
+;; Filesystem path:
+;;   Seconds.newtype
+@F64
+
+;; Filesystem path:
+;;   Meters.newtype
+@F64
+
+;; Rust equivalent:
+;;   pub struct Seconds(pub f64);
+;;   pub struct Meters(pub f64);
+;;
+;; Two distinct types, each wrapping F64. No accidental
+;; substitution across units.
+
+
+;; =============================================================
+;; CONSTS — Name.const files
+;; =============================================================
+;;
+;; Filename grammar:
+;;   [_]ConstName.const
+;;
+;; Content grammar:
+;;   <Type> <LiteralOrExpr>
+;;
+;; The file holds the const's type followed by its value. The
+;; RHS can be a literal (v0.20) or an expression (S8 — proposed
+;; in v0.21 but currently literal-only).
+
+;; Literal const ----------------------------------------------
+
+;; Filesystem path:
+;;   MaxSigns.const
+U32 12
+
+;; Rust equivalent:
+;;   pub const MAX_SIGNS: u32 = 12;
+
+;; Filesystem path:
+;;   Pi.const
+F64 3.14159
+
+;; Filesystem path:
+;;   Greeting.const
+String "hello"
+
+;; Private const ----------------------------------------------
+
+;; Filesystem path:
+;;   _InternalTuningFactor.const
+F64 1.618
+
+;; Rust equivalent:
+;;   const INTERNAL_TUNING_FACTOR: f64 = 1.618;
+
+;; Const expression (S8 — PROPOSED) ---------------------------
+
+;; ;; OPEN — see gap-analysis.md §S8 (const expressions)
+;; ;; Proposed: const RHS is an <Expr>, not only a <Literal>.
+;; ;;
+;; ;;   MaxSessions.const:
+;; ;;     U32 MaxUsers * 4
+;; ;;
+;; ;; Rust equivalent:
+;; ;;   pub const MAX_SESSIONS: u32 = MAX_USERS * 4;
+;; ;;
+;; ;; veric would const-eval the RHS. Status: not landed.
+
+
+;; =============================================================
+;; TRAITS — Name.trait files
+;; =============================================================
+;;
+;; Filename grammar:
+;;   [_]TraitName.trait
+;;
+;; Content grammar:
+;;   ?<GenericsAndSuperBounds> *<TraitItem>
+;;
+;; The first token is `{` if the trait has a generic slot and/or
+;; super-trait bounds; otherwise the first token is a trait item.
+;; First-token decidable.
+;;
+;; TraitItem forms:
+;;   Pascal bare       → associated type declaration
+;;   (camelName ...)   → method signature (with optional default body)
+;;   {| @Name Type |}  → associated const declaration (optional default)
+
+;; Minimal trait -----------------------------------------------
+
+;; Filesystem path:
+;;   Describe.trait
+(describe &self Quality)
+
+;; Rust equivalent:
+;;   pub trait Describe { fn describe(&self) -> Quality; }
+;;
+;; v0.20: @[| Describe (describe &self Quality) |]
+;; v0.21: path carries the @, the [|, and the name. The file
+;; holds items.
+
+;; Trait with default method body -----------------------------
+
+;; Filesystem path:
+;;   Greeter.trait
+(name &self String)
+(greet &self String [
+  StringFormat:combine("Hello, " self.name "!")
+])
+
+;; Rust equivalent:
+;;   pub trait Greeter {
+;;       fn name(&self) -> String;
+;;       fn greet(&self) -> String {
+;;           format!("Hello, {}!", self.name())
+;;       }
+;;   }
+
+;; Trait with associated type ---------------------------------
+
+;; Filesystem path:
+;;   Iterator.trait
+Item
+(next ~&self {Option self:Item})
+
+;; Rust equivalent:
+;;   pub trait Iterator {
+;;       type Item;
+;;       fn next(&mut self) -> Option<Self::Item>;
+;;   }
+
+;; Trait with multiple associated types + method-level generics
+
+;; Filesystem path:
+;;   Graph.trait
+Node
+Edge
+(nodes &self {Vec self:Node})
+(edges &self &from self:Node {Vec self:Edge})
+(apply ?{$Output} &self &transform {Callable self:Node $Output} {Vec $Output})
+
+;; Rust equivalent:
+;;   pub trait Graph {
+;;       type Node;
+;;       type Edge;
+;;       fn nodes(&self) -> Vec<Self::Node>;
+;;       fn edges(&self, from: &Self::Node) -> Vec<Self::Edge>;
+;;       fn apply<U>(&self, transform: &dyn Fn(&Self::Node) -> U) -> Vec<U>;
+;;   }
+;;
+;; Method-level generic slot `?{$Output}` comes after the method
+;; name, before its parameters.
+
+;; Trait with associated const (S9 — PROPOSED) ----------------
+
+;; ;; OPEN — see gap-analysis.md §S9 (associated consts)
+;; ;;
+;; ;; BoundedQueue.trait:
+;; ;;   Item
+;; ;;   {| Capacity U32 |}                  ;; no default
+;; ;;   {| DefaultTimeoutMs U64 30000 |}    ;; with default
+;; ;;   (push ~&self :value self:Item)
+;; ;;
+;; ;; Rust equivalent:
+;; ;;   pub trait BoundedQueue {
+;; ;;       type Item;
+;; ;;       const CAPACITY: u32;
+;; ;;       const DEFAULT_TIMEOUT_MS: u64 = 30_000;
+;; ;;       fn push(&mut self, value: Self::Item);
+;; ;;   }
+
+;; Trait with super-traits ------------------------------------
+
+;; Filesystem path:
+;;   Ord.trait
+{PartialOrd Eq}
+(compare &self &other Self Ordering)
+
+;; Rust equivalent:
+;;   pub trait Ord: PartialOrd + Eq {
+;;       fn compare(&self, other: &Self) -> Ordering;
+;;   }
+;;
+;; First token is `{` — super-trait/generic slot. Bare Pascal
+;; names inside the slot are super-traits; `$`-prefixed names
+;; are generic parameters. Items follow.
+
+;; Trait with generics AND super-traits AND associated types --
+
+;; Filesystem path:
+;;   TotalOrd.trait
+{$Value{PartialOrd Eq}}
+Output
+(cmp &self &other self:Output)
+
+;; Rust equivalent:
+;;   pub trait TotalOrd<T: PartialOrd + Eq> {
+;;       type Output;
+;;       fn cmp(&self, other: &Self) -> Self::Output;
+;;   }
+
+;; Generic trait (From) ---------------------------------------
+
+;; Filesystem path:
+;;   From.trait
+{$Source}
+(from :value $Source Self)
+
+;; Rust equivalent:
+;;   pub trait From<Source> { fn from(value: Source) -> Self; }
+
+;; Trait with method-level generic + bound --------------------
+
+;; Filesystem path:
+;;   Collect.trait
+(into {$Target} &self {$Target})
+
+;; Rust equivalent (method-level generic):
+;;   pub trait Collect {
+;;       fn into<Target>(&self) -> Target;
+;;   }
+
+;; Trait with bounded generic in a method sig -----------------
+
+;; Filesystem path:
+;;   Serialize.trait
+(toBytes &self &data $Value{Clone Debug} {Vec U8})
+
+;; Rust equivalent:
+;;   pub trait Serialize {
+;;       fn to_bytes<T: Clone + Debug>(&self, data: &T) -> Vec<u8>;
+;;   }
+
+;; Marker trait (empty body) ----------------------------------
+
+;; Filesystem path:
+;;   Send.trait
+;; (no tokens in body)
+
+;; Rust equivalent:
+;;   pub trait Send {}
+
+;; Trait with origin in signature -----------------------------
+
+;; Filesystem path:
+;;   Borrow.trait
+{$Borrowed}
+(borrow &self &'self $Borrowed)
+
+;; Rust equivalent:
+;;   pub trait Borrow<Borrowed> {
+;;       fn borrow<'a>(&'a self) -> &'a Borrowed;
+;;   }
+
+;; Trait with associated-type bound (projection) --------------
+
+;; Filesystem path:
+;;   IntoIterator.trait
+Item
+IntoIter {Iterator (Item self:Item)}
+(intoIter self self:IntoIter)
+
+;; Rust equivalent:
+;;   pub trait IntoIterator {
+;;       type Item;
+;;       type IntoIter: Iterator<Item = Self::Item>;
+;;       fn into_iter(self) -> Self::IntoIter;
+;;   }
+
+;; Full-featured trait ----------------------------------------
+
+;; Filesystem path:
+;;   Service.trait
+{$Request{Clone} Sync Clone}
+Response
+Error {Display Debug}
+{| DefaultTimeoutMs U64 30000 |}
+(call    &self :request $Request {Result self:Response self:Error})
+(timeout &self U64 [Self:DefaultTimeoutMs])
+
+;; Rust equivalent:
+;;   pub trait Service<Request: Clone> : Sync + Clone {
+;;       type Response;
+;;       type Error: Display + Debug;
+;;       const DEFAULT_TIMEOUT_MS: u64 = 30_000;
+;;       fn call(&self, request: Request)
+;;           -> Result<Self::Response, Self::Error>;
+;;       fn timeout(&self) -> u64 { Self::DEFAULT_TIMEOUT_MS }
+;;   }
+
+
+;; =============================================================
+;; IMPLS — Trait[Args]~Target.impl files
+;; =============================================================
+;;
+;; Filename grammar (impl filename carries trait + target):
+;;
+;;   [_]TraitPart~TargetPart.impl
+;;
+;; where TraitPart is:
+;;   Trait                           — bare trait name
+;;   Trait[Arg,Arg,...]              — trait with type arguments
+;;   Trait@Module                    — trait qualified with module
+;;   Trait@A@B                       — chained module qualifier (A::B::Trait)
+;;
+;; and TargetPart is:
+;;   Target                          — concrete type
+;;   Target[Arg,...]                 — applied concrete type (head only)
+;;   Target@Module                   — cross-module target
+;;   $                               — blanket (any type)
+;;   $(Bound)                        — bounded blanket (any type with Bound)
+;;   $(Bound+Bound+...)              — multi-bound blanket
+;;
+;; Content grammar (the ImplBody):
+;;   ?<GenericSlot>
+;;   *<TraitImplItem>
+;;
+;; TraitImplItem forms:
+;;   (@AssocName Type)               — associated type binding (Pascal)
+;;   {| @AssocName Type Value |}     — associated const binding
+;;   (camelName ...signature... body) — method body
+;;
+;; NOTE on filename separators:
+;;   `~` separates trait and target at the top level.
+;;   `[` and `]` open and close a trait-or-target argument list.
+;;   `,` separates items inside `[...]`.
+;;   `@` qualifies a name with a module path.
+;;   `$` alone at target position = blanket.
+;;   `$(...)` = bounded blanket; `+` separates bounds.
+;;
+;; The impl name (what v0.20 carried as `@ImplName` at position 0
+;; inside the root `[...]`) now lives in the filename STEM. Since
+;; each impl has its trait+target encoded, the stem is
+;; human-readable.
+;;
+;; A PURE-STEM convention also works for single-impl-per-pair
+;; projects — the filename IS the trait+target pair, unambiguously.
+;; Multi-impl projects need disambiguation: see NAMED IMPLS below.
+
+;; Simplest impl (single impl for the pair) -------------------
+
+;; Filesystem path:
+;;   Describe~Element.impl
+
+;; File content:
+(describe &self Quality (|
+  ([Fire Air])      Active
+  ([Earth Water])   Receptive
+|))
+
+;; Rust equivalent:
+;;   impl Describe for Element {
+;;       fn describe(&self) -> Quality {
+;;           match self {
+;;               Element::Fire | Element::Air => Quality::Active,
+;;               Element::Earth | Element::Water => Quality::Receptive,
+;;           }
+;;       }
+;;   }
+;;
+;; v0.20: @[Describe Element [ (describe &self Quality (|...|)) ]]
+;; v0.21: the Trait, Target, visibility, and outer `[` all move
+;; to the filename. The file's content is just the impl body.
+
+;; Impl with associated-type binding + method ----------------
+
+;; Filesystem path:
+;;   Iterator~TokenReader.impl
+
+;; File content:
+(Item Token)
+(next ~&self {Option Token} [
+  (| self.cursor.geq(self.buffer.len)
+    ( True )  Option:None
+    ( False ) [
+      (token self.buffer.at(self.cursor).clone)
+      ~self.cursor.addAssign(1)
+      Option:Some(token)
+    ]
+  |)
+])
+
+;; Rust equivalent:
+;;   impl Iterator for TokenReader {
+;;       type Item = Token;
+;;       fn next(&mut self) -> Option<Token> {
+;;           if self.cursor >= self.buffer.len() { None }
+;;           else {
+;;               let token = self.buffer[self.cursor].clone();
+;;               self.cursor += 1;
+;;               Some(token)
+;;           }
+;;       }
+;;   }
+
+;; Generic impl ------------------------------------------------
+
+;; Filesystem path:
+;;   Container~RingBuffer.impl
+
+;; File content:
+{$Value{Clone}}
+(push ~&self :value $Value [
+  ~self.buffer.append(value)
+])
+
+;; Rust equivalent:
+;;   impl<T: Clone> Container<T> for RingBuffer<T> {
+;;       fn push(&mut self, value: T) {
+;;           self.buffer.push(value);
+;;       }
+;;   }
+;;
+;; The generic slot at the top of the body introduces $Value.
+;; Both Trait (as Container<$Value>) and Target (RingBuffer<$Value>)
+;; share the parameter. The filename is the bare-head form
+;; `Container~RingBuffer.impl`; argument application happens in
+;; the body's generic slot.
+
+;; Impl with explicit trait type-argument in filename ---------
+
+;; Filesystem path:
+;;   Iterator[Token]~TokenReader.impl
+
+;; File content:
+(Item Token)
+(next ~&self {Option Token} [ ... ])
+
+;; This form appears when the trait takes type arguments and you
+;; want that visible in the path. The `[Token]` after `Iterator`
+;; is filename-syntax for the trait's type argument list. Inside
+;; the body, the impl works normally.
+;;
+;; Two equivalent encodings coexist:
+;;   Iterator[Token]~TokenReader.impl   ;; args in the filename
+;;   Iterator~TokenReader.impl          ;; body supplies Item=Token via (Item Token)
+;;
+;; Pick one per project. The shorter form is more common; the
+;; longer form is self-documenting for readers scanning the
+;; filesystem.
+
+;; Trait with multiple type arguments -------------------------
+
+;; Filesystem path:
+;;   From[String]~Token.impl
+
+;; File content:
+(from :source String Token [
+  Token:Ident(source)
+])
+
+;; Rust equivalent:
+;;   impl From<String> for Token {
+;;       fn from(source: String) -> Token {
+;;           Token::Ident(source)
+;;       }
+;;   }
+;;
+;; Filesystem path for a multi-arg trait:
+;;   Translator[Input,Output]~Pipeline.impl
+
+;; Blanket impl -----------------------------------------------
+
+;; Filesystem path:
+;;   Describe~$.impl
+
+;; File content:
+{$Any{Debug}}
+(describe &self Quality [ Active ])
+
+;; Rust equivalent:
+;;   impl<T: Debug> Describe for T {
+;;       fn describe(&self) -> Quality { Active }
+;;   }
+;;
+;; `$` alone at target position = blanket. The generic slot in
+;; the body binds the parameter and its bound.
+
+;; Bounded blanket via filename (more concise) ----------------
+
+;; Filesystem path:
+;;   Describe~$(Debug).impl
+
+;; File content:
+(describe &self Quality [ Active ])
+
+;; Rust equivalent: identical to the previous example, but the
+;; bound lives in the filename rather than in a body-level
+;; generic slot. Choose whichever reads clearer for the project.
+
+;; Multi-bound blanket ----------------------------------------
+
+;; Filesystem path:
+;;   Display~$(Clone+Debug).impl
+
+;; File content:
+(display &self String [ "bounded blanket Display" ])
+
+;; Rust equivalent:
+;;   impl<T: Clone + Debug> Display for T { ... }
+
+;; Cross-module impl (target in another module) ---------------
+
+;; Filesystem path:
+;;   Describe~Shape@shapes.impl
+
+;; File content:
+(describe &self Quality [ Active ])
+
+;; Rust equivalent:
+;;   impl Describe for shapes::Shape { ... }
+;;
+;; `@shapes` qualifies the target's module; the filename says
+;; "describe for Shape, which lives in the shapes module."
+;; Chainable: `Shape@shapes@drawing` = `drawing::shapes::Shape`.
+
+;; Cross-module trait (trait in another module) ---------------
+
+;; Filesystem path:
+;;   Describe@external~Element.impl
+
+;; File content:
+(describe &self Quality [ Active ])
+
+;; Rust equivalent:
+;;   impl external::Describe for Element { ... }
+
+;; Cross-module both ------------------------------------------
+
+;; Filesystem path:
+;;   Display@std~Shape@shapes.impl
+
+;; Rust equivalent:
+;;   impl std::fmt::Display for shapes::Shape { ... }
+
+;; Named impls — multiple impls per (Trait, Target) ----------
+
+;; Under II-L, the filename stem IS the impl name. If two impls
+;; of the same (Trait, Target) need to coexist, disambiguate by
+;; appending a hyphenated discriminator.
+
+;; Filesystem paths:
+;;   Iterator[Token]~TokenReader-fast.impl
+;;   Iterator[Token]~TokenReader-safe.impl
+
+;; Contents (each file):
+;;   ;; fast variant:
+;;   (Item Token)
+;;   (next ~&self {Option Token} [ ...tight-loop... ])
+;;
+;;   ;; safe variant:
+;;   (Item Token)
+;;   (next ~&self {Option Token} [ ...bounds-checked... ])
+
+;; Rust equivalent:
+;;   pub struct TokenReader { ... }
+;;   ;; Rust can't do this directly — one impl per (Trait, Target)
+;;   ;; per crate. aski allows two, selected per-scope via activation.
+;;
+;; Activation at a call site (inside a method body):
+;;
+;;   {Iterator[Token]~TokenReader-fast}
+;;   (tokens self.source.iter)
+;;
+;; `{...}` at statement position = impl activation directive.
+;; See 04-impls.md for the full scope-activation model. See
+;; gap-analysis.md §S6 for dyn/named-impl interactions.
+
+;; Impl with associated const binding (S9 — PROPOSED) --------
+
+;; ;; OPEN — see gap-analysis.md §S9
+;; ;;
+;; ;; BoundedQueue~FastQueue.impl:
+;; ;;   (Item Token)
+;; ;;   {| Capacity U32 256 |}
+;; ;;   (push ~&self :value Token [ ... ])
+
+;; Full impl with every item kind (S9 assumed) ----------------
+
+;; ;; Filesystem path:
+;; ;;   Iterator[Token]~TokenReader.impl
+;; ;;
+;; ;; File content:
+;; ;;   (Item Token)
+;; ;;   {| BatchSize U32 256 |}
+;; ;;   (next ~&self {Option Token} [ ... ])
+
+;; Impl that depends on another trait (super-trait chain) ----
+
+;; Filesystem path:
+;;   DoubleEndedIterator~TokenReader.impl
+
+;; File content:
+(nextBack ~&self {Option Token} [
+  ;; uses self.cursor — Item inherited from Iterator super-trait
+  ...
+])
+
+;; Rust equivalent:
+;;   impl DoubleEndedIterator for TokenReader {
+;;       fn next_back(&mut self) -> Option<Self::Item> { ... }
+;;   }
+;;
+;; `Self::Item = Token` is inherited from the Iterator impl above;
+;; veric verifies consistency across the two impl files.
+
+
+;; =============================================================
+;; EFFECTS — Trait[Args]~Target.effect files
+;; =============================================================
+;;
+;; Filename grammar: same as .impl but with `.effect` extension.
+;; Content grammar: identical to .impl.
+;;
+;; The ONLY semantic difference: an impl in a `.effect` file
+;; is allowed to cross the I/O boundary (read files, call RFI,
+;; touch external state). A file in `.impl` cannot. veric
+;; enforces.
+;;
+;; A library that never imports a `.effect` file (transitively)
+;; is provably pure — its effect closure is empty.
+
+;; FileReader effect ------------------------------------------
+
+;; Filesystem path:
+;;   FileReader~LocalFs.effect
+
+;; File content:
+(readAll &self &path Path {Result String Error} [
+  Rfi:FileSystem:readToString(path)
+])
+
+;; Rust equivalent:
+;;   impl FileReader for LocalFs {
+;;       fn read_all(&self, path: &Path) -> Result<String, Error> {
+;;           std::fs::read_to_string(path)
+;;       }
+;;   }
+;;
+;; `Rfi:FileSystem:readToString` is a call into the RFI surface
+;; (see `.rfi` files below). The effect is tracked: anyone who
+;; transitively depends on `FileReader~LocalFs.effect` has
+;; `FileSystem` in their effect closure.
+
+;; Clock effect -----------------------------------------------
+
+;; Filesystem path:
+;;   Clock~Utc.effect
+
+;; File content:
+(now &self Time [
+  Rfi:Time:systemNowUtc
+])
+
+;; Rust equivalent:
+;;   impl Clock for Utc { fn now(&self) -> Time { ... } }
+
+;; Logger effect (composite — delegates to other effects) ----
+
+;; Filesystem path:
+;;   Logger~Multi.effect
+
+;; File content:
+(log ~&self &message String [
+  [~Stderr:write(message)]
+  [~LogFile:append(message)]
+])
+
+;; Rust equivalent:
+;;   impl Logger for Multi {
+;;       fn log(&mut self, message: &str) {
+;;           stderr().write(message);
+;;           log_file().append(message);
+;;       }
+;;   }
+
+;; Platform-scoped effect (capability system) -----------------
+
+;; Filesystem path:
+;;   Clock~System.native.effect
+;;   Clock~System.browser.effect
+;;   Clock~System.wasm.effect
+
+;; Content of Clock~System.native.effect:
+(now &self Time [ Rfi:PosixTime:gettimeofday ])
+
+;; Content of Clock~System.browser.effect:
+(now &self Time [ Rfi:JsDate:now ])
+
+;; Content of Clock~System.wasm.effect:
+(now &self Time [ Rfi:WasiClock:realtime ])
+
+;; The `<platform>` segment between the stem and extension
+;; carries the build tag. Build selection chooses which set
+;; of platform-tagged effects to link. See
+;; `multi-surface/05-effects-and-platforms.md`.
+
+
+;; =============================================================
+;; DERIVATIONS — Name.derivation files
+;; =============================================================
+;;
+;; Filename grammar:
+;;   [_]DerivationName.derivation
+;;
+;; Content grammar:
+;;   :TraitName <TypePattern> *<TraitImplItem>
+;;
+;; A derivation is a rule: "for every type matching this pattern,
+;; synthesize this impl." veric applies the rule at link time,
+;; producing synthetic `.impl` equivalents for each matching type.
+;; Hand-written `.impl` files for a given (Trait, Target) always
+;; win over derivation output (most-specific wins).
+
+;; Debug derivation for any struct whose fields all impl Debug
+
+;; Filesystem path:
+;;   DebugStruct.derivation
+
+;; File content:
+:Debug {StructOf {$Struct} {AllFields Debug}}
+(debug &self String [
+  (out :StructName:asString)
+  [~out.append(" { ")]
+  {| self.Struct.field
+    [~out.append(field.name)]
+    [~out.append(": ")]
+    [~out.append(field.value.debug)]
+    [~out.append(" ")]
+  |}
+  [~out.append("}")]
+  out
+])
+
+;; Rust equivalent:
+;;   // #[derive(Debug)] on any struct
+;;   impl Debug for <any struct whose fields all impl Debug> {
+;;       fn debug(&self) -> String { ... }
+;;   }
+;;
+;; `StructOf` / `AllFields` are pattern-matchers on type shape,
+;; provided by the derivation stdlib. See
+;; `multi-surface/06-derivations-and-testing.md` for the full
+;; pattern language.
+
+;; Clone derivation for enums ---------------------------------
+
+;; Filesystem path:
+;;   CloneEnum.derivation
+
+;; File content:
+:Clone {EnumOf {$Enum} {AllVariants Clone}}
+(clone &self Self [
+  (| self
+    {| :EnumType.variant
+      ( :variant :fields ) :variant(:fields.map(field.clone))
+    |}
+  |)
+])
+
+;; JSON serialization derivation for structs ------------------
+
+;; Filesystem path:
+;;   JsonSerializeStruct.derivation
+
+;; File content:
+:JsonSerialize {StructOf {$Struct} {AllFields JsonSerialize}}
+(toJson &self Json [
+  (obj Json:Object:empty)
+  {| self.Struct.field
+    [~obj.insert(field.name field.value.toJson)]
+  |}
+  Json:Object(obj)
+])
+
+
+;; =============================================================
+;; TEST-IMPLS — Trait[Args]~Target.test-impl files
+;; =============================================================
+;;
+;; Filename grammar: same as `.impl` with `.test-impl` extension.
+;; Content grammar: identical to `.impl`.
+;;
+;; Only linked into test builds. Replaces production impls for
+;; the same (Trait, Target) pair during test runs.
+
+;; Filesystem path:
+;;   Storage~Database.test-impl
+
+;; File content:
+(read &self &key String {Option String} [
+  Option:Some("mocked-value")
+])
+(write ~&self &key String &value String [
+  Unit
+])
+
+;; Rust equivalent: what you'd write in a `#[cfg(test)]` mod
+;; with a mock Database. aski's version is a separate file,
+;; linked by the test build. No conditional compilation in
+;; production source.
+
+;; Bench-impls follow the same pattern with `.bench-impl`.
+
+
+;; =============================================================
+;; NO MODULE HEADERS IN SOURCE
+;; =============================================================
+;;
+;; v0.20's `(ModuleName [Imports...])` as the first form of every
+;; `.aski` file is retired. A directory IS a module. No source
+;; file names its module; no source file lists its imports.
+;;
+;; What v0.20 wrote:
+;;
+;;   ;; shapes/shapes.aski (v0.20)
+;;   (Shapes
+;;     [core Element Quality]
+;;     [collections Vec])
+;;
+;;   @(Shape (Circle F64) (Rectangle (Width F64) (Height F64)))
+;;   ...
+;;
+;; What v0.21 writes:
+;;
+;;   shapes/
+;;     imports                           ;; single imports file
+;;       [core Element Quality]
+;;       [collections Vec]
+;;     Shape.enum                        ;; one public object per file
+;;       (Circle F64)
+;;       {Rectangle (Width F64) (Height F64)}
+;;
+;; The module's name IS the directory name (`shapes`). The
+;; visibility is implicit: files are public unless prefixed with `_`.
+
+
+;; =============================================================
+;; VISIBILITY
+;; =============================================================
+;;
+;; Visibility channels in v0.21:
+;;
+;;   * File-level: filename prefix `_` = private (visible only
+;;     within its directory). No prefix = public (visible to
+;;     importers).
+;;   * Field-level: `@` sigil on struct field names retains the
+;;     v0.20 semantics — field-level visibility lives inside the
+;;     struct body because one struct file can mix public and
+;;     private fields. `@` has no other meaning in v0.21.
+;;   * Directory-level: a directory prefixed `_` is a private
+;;     sub-module — all its files are visible only within the
+;;     parent directory.
+;;
+;; What v0.20 had that v0.21 doesn't need:
+;;   * `@` prefix on root declarations
+;;   * `@` prefix on newtype wrapped types for public transparency
+;;     — WAIT: `@` on the wrapped type INSIDE .newtype files
+;;     survives in v0.21 because transparency is a per-newtype
+;;     choice that lives in the body, not the path. See NEWTYPES.
+;;
+;; Summary table:
+;;
+;;   v0.20 form                  v0.21 form
+;;   -------------------------   -------------------------
+;;   @(Enum ...)                 Enum.enum
+;;   (Enum ...)                  _Enum.enum
+;;   @{Struct ...}               Struct.struct
+;;   {Struct ...}                _Struct.struct
+;;   @(@FieldName Type)          (@FieldName Type) inside Struct.struct
+;;   @(FieldName Type)           (FieldName Type) inside Struct.struct
+;;   @(| Newtype @Type |)        Newtype.newtype with content: @Type
+;;   @(| Newtype Type |)         Newtype.newtype with content: Type
+;;   @{| Const Type Literal |}   Const.const with content: Type Literal
+;;   @[| Trait ... |]            Trait.trait
+;;   @[Impl Trait Target ...]    Trait~Target.impl (stem = impl name)
+
+
+;; =============================================================
+;; LITERALS (in body position, inside files)
+;; =============================================================
+;;
+;; Literals appear inside body grammar — const files, struct
+;; construction, match arms, local decls. The forms are
+;; unchanged from v0.20.
+
+;; Inside a .const file:
+;;   F64 3.14159                      ;; Float
+;;   U32 2026                         ;; Int (decimal)
+;;   String "hello"                   ;; Str
+;;   Bool True                        ;; Bool (variant-style)
+;;   Unit Unit                        ;; Unit (zero-info)
+;;
+;; Signed:
+;;   I32 -42                          ;; Int with unary minus (C6)
+;;   F64 0.25
+;;   String "line one\nline two"      ;; escape sequences (see N8)
+
+
+;; =============================================================
+;; LOCAL DECLARATIONS — the five shapes
+;; =============================================================
+;;
+;; All locals use `()` at statement position inside method bodies.
+;; The shape inside picks the variant. Unchanged from v0.20.
+;;
+;;   (name)                     Canonical  — declare-only, type = Pascal-of-name
+;;   (name Type)                TypeOnly    — new local wrapping Type, uninitialized
+;;   (name Type:method(args))   TypeInit    — wrapping + initialized
+;;   (name :method(args))       Construct   — instance via Pascal-of-name:method
+;;   (name expr)                BindExpr    — bind name to expression
+
+;; Inside Radius~Bindings.impl (hypothetical demo):
+;;
+;;   (demo &self [
+;;     (counter)                          ;; Canonical
+;;     (buffer {Vec U8})                  ;; TypeOnly
+;;     (origin Point:new(0.0 0.0))        ;; TypeInit
+;;     (radius :new(5.0))                 ;; Construct
+;;     (total counter + 1)                ;; BindExpr
+;;     [~counter.set(total)]              ;; Mutation — ExprStmt, not LocalDecl
+;;     counter
+;;   ])
+
+
+;; =============================================================
+;; REFERENCES, BORROWS, ORIGINS, VIEWS
+;; =============================================================
+;;
+;; Type-position and expression-position forms, unchanged from
+;; v0.20.
+
+;; Borrow in type position (a method signature):
+;;   (describe &self Quality)
+;;   (emit ~&self ~&out Writer)
+
+;; Origin in type position:
+;;   (get &'Map self &key String String)
+;;   (leftmost &'self.Left self String)
+;;   (concat &'(Left Right) node Rope)
+
+;; View type (partial-field borrow):
+;;   (tick ~&self {| Count |} U32)
+;;   (summary &self {| Count Name |} String)
+
+;; Borrow in expression position (inside a method body):
+;;   (shared &rawLocal)
+;;   (mutRef ~&rawLocal)
+;;
+;; ;; OPEN — see gap-analysis.md §C7 (borrow-of-arbitrary-expression)
+;; ;; Borrowing arbitrary paths (e.g., `&self.field`, `&item.inner`)
+;; ;; is currently restricted to bare locals. Expansion to place
+;; ;; expressions pending.
+
+
+;; =============================================================
+;; GENERIC SYNTAX
+;; =============================================================
+;;
+;; Unchanged from v0.20. Appears in .enum / .struct / .newtype /
+;; .trait / .impl files as an optional body-starting `{...}` slot.
+;;
+;;   {$Value}                          simple slot
+;;   {$Value{Clone Debug}}             bounded
+;;   {$Left $Right}                    multi-param
+;;   {$Value{Clone} SuperTrait}        mixed with super-traits (traits)
+;;   ${Clone Debug}                    bounds-as-name (no semantic name)
+;;
+;; Method-level generics use `?{...}` after the method name,
+;; before the parameter list:
+;;
+;;   (into {$Target} &self {$Target})
+;;   (apply ?{$Output} &self &fn {Callable self:Item $Output} $Output)
+
+;; Type application uses `{Constructor Arg1 Arg2 ...}`:
+;;
+;;   {Vec U32}
+;;   {Option {Vec String}}
+;;   {Result U32 ConversionError}
+;;   {Map String {Vec Token}}
+
+
+;; =============================================================
+;; MATCH, LOOP, ITERATION, EXPRSTMT, OR-PATTERN, EARLY RETURN,
+;; TRY-UNWRAP — unchanged body grammar
+;; =============================================================
+;;
+;; All the in-body forms from v0.20 survive identical in v0.21.
+;; These appear inside method bodies in `.impl` / `.effect` /
+;; `.test-impl` / `.bench-impl` / `.derivation` / `.exec` files.
+
+;; Match (inside a method body in Describe~Element.impl):
+;;
+;;   (describe &self Quality (|
+;;     ([Fire Air])      Active
+;;     ([Earth Water])   Receptive
+;;   |))
+;;
+;; Match arm forms:
+;;   _                       — WildcardPattern (C1, landed 2026-04-19)
+;;   :Variant                — VariantMatch
+;;   :Variant @binding       — VariantBind (binding = camel-of-payload-type)
+;;   [:Var1 :Var2]           — VariantAlt (or-pattern)
+;;   "literal"               — StringMatch
+;;
+;; Struct destructuring pattern (U11 — OPEN): see gap-analysis.md §U11
+
+;; Loop (inside a method body):
+;;
+;;   (skipWhitespace ~&self [| self.atEnd == False
+;;     [(| self.peek
+;;       (Newline) self.advance
+;;       (Space) self.advance
+;;     |)]
+;;   |])
+;;
+;; Infinite loop pattern today is `[| true body |]`. See
+;; gap-analysis.md §U19 for open alternatives.
+
+;; Iteration:
+;;
+;;   (printAll &self {| self.List.item
+;;     [StdOut:print(item.Name)]
+;;   |})
+
+;; ExprStmt (side effect in body, wrapped in `[...]`):
+;;
+;;   [self.loadConfig]
+;;   [self.connect]
+;;   [~counter.set(total)]
+
+;; Early return (`^expr` statement form):
+;;
+;;   (find &self &key String {Option String} [
+;;     (| self.containsKey(key)
+;;       (False) ^Option:None
+;;     |)
+;;     Option:Some(self.get(key))
+;;   ])
+
+;; Try-unwrap (postfix `?` on Result/Option):
+;;
+;;   (result self.compileFiles(files)?)
+
+;; Break / continue / labeled break (U13 — OPEN): see
+;; gap-analysis.md §U13 and bridge/small-decisions.md §S3.
+
+
+;; =============================================================
+;; SELF IN EXPRESSIONS
+;; =============================================================
+;;
+;; `self` is an expression atom. `self.Field` is field access;
+;; `self.method(args)` is a method call on self.
+;;
+;;   (offset &self &delta Point Point
+;;     {Point (Horizontal self.Horizontal + delta.Horizontal)
+;;            (Vertical self.Vertical + delta.Vertical)})
+;;
+;; Unchanged from v0.20.
+
+
+;; =============================================================
+;; MUTATION
+;; =============================================================
+;;
+;; `~name.method(args)` is a mutation statement — the mutation
+;; marker `~` at expression position on a method call.
+;;
+;;   (tick ~&self [
+;;     [~self.Count.set(self.Count + 1)]
+;;     self.Count
+;;   ])
+;;
+;; `~` never stands alone. It always modifies the thing being
+;; made mutable: a local declaration (`~counter` — at the
+;; declaration site), a borrow (`~&self`), or a method call
+;; (`~counter.set(...)`).
+;;
+;; Assignment `=` and compound `+=` are not part of the grammar
+;; in v0.21. Mutation flows through method calls on mutable
+;; locals, on `~&self`, or on stdlib primitive methods like
+;; `U32:set(...)`, `U32:addAssign(...)`. See gap-analysis.md §U7
+;; for the open question on whether `=` ever lands.
+
+
+;; =============================================================
+;; PATH SYNTAX
+;; =============================================================
+;;
+;; Paths use `:` as the separator.
+;;
+;;   Element:Fire                       ;; variant of an enum
+;;   Option:None                         ;; bare variant
+;;   Option:Some(42)                     ;; data variant with arg
+;;   Counter:new(0)                      ;; type-path method call
+;;   U32:zero                            ;; type-path constant/method
+;;   self:Item                           ;; trait's associated type (inside trait/impl)
+;;   Shape:Rectangle                     ;; nested enum variant
+;;   Token:Delimiter:LParen              ;; chained-nested variant
+;;   Char:Upper:A                        ;; chained path through the Char library
+;;
+;; Cross-module access uses `:` too — the module IS a name in
+;; the same namespace as the type, because both are paths:
+;;
+;;   shapes:Shape                        ;; type Shape in module shapes
+;;   shapes:Shape:Rectangle              ;; nested variant of a cross-module type
+;;
+;; Filename-level `@` (impl files only — `Trait@Module`) is
+;; filesystem syntax; source-level path syntax uses `:` only.
+
+
+;; =============================================================
+;; CHAR LIBRARY — Char:Upper:A etc. (U16 landing)
+;; =============================================================
+;;
+;; Char has no literal syntax. Char is an enum library where each
+;; individual character is a variant accessed by chained path.
+;;
+;; The filesystem layout under II-L:
+;;
+;;   Char.enum                           ;; the top-level enum
+;;     Upper                             ;; nested enum (letters A-Z)
+;;     Lower                             ;; nested enum (letters a-z)
+;;     Digit                             ;; nested enum (digits 0-9 as words: Zero, One, ...)
+;;     Whitespace                        ;; nested enum (Space, Tab, Newline, CarriageReturn, ...)
+;;     Control                           ;; nested enum
+;;     Punct                             ;; nested enum (Tilde, Comma, Period, ...)
+;;     Bracket                           ;; nested enum (LParen, RParen, LBracket, ...)
+;;     (Code (Codepoint U32))            ;; fall-through for non-categorized Unicode
+;;
+;; Char.enum content:
+(| Upper A B C D E F G H I J K L M N O P Q R S T U V W X Y Z |)
+(| Lower A B C D E F G H I J K L M N O P Q R S T U V W X Y Z |)
+(| Digit Zero One Two Three Four Five Six Seven Eight Nine |)
+(| Whitespace Space Tab Newline CarriageReturn FormFeed VerticalTab |)
+(| Control Null Bell Backspace Escape ... |)
+(| Punct Tilde Comma Period Question Exclamation Colon Semicolon Apostrophe QuotationMark Hyphen Underscore ... |)
+(| Bracket LParen RParen LBracket RBracket LBrace RBrace LAngle RAngle |)
+(Code (Codepoint U32))
+
+;; Rust equivalent (roughly):
+;;   pub enum Char {
+;;       Upper(UpperLetter),   // UpperLetter: A, B, C, ..., Z
+;;       Lower(LowerLetter),
+;;       Digit(DigitName),
+;;       Whitespace(WhitespaceKind),
+;;       ...
+;;       Code { codepoint: u32 },
+;;   }
+;;
+;; Usage in source:
+;;
+;;   (c Char:Upper:A)                    ;; the letter A
+;;   (space Char:Whitespace:Space)
+;;   (sigma Char:Code(0x03C3))           ;; Greek small sigma (non-categorized)
+;;
+;; The case of a letter is carried by the outer variant
+;; (Upper/Lower) — no case-rule carve-out needed. There is no
+;; `'A'` or `` `A` `` literal. Chars are a library, not a
+;; primitive literal form.
+;;
+;; Under II-L, this library can be split:
+;;
+;;   stdlib/
+;;     Char.enum                         ;; the head: variants by category
+;;     Char/
+;;       Upper.enum                      ;; A..Z as bare variants
+;;       Lower.enum                      ;; a..z
+;;       Digit.enum                      ;; Zero..Nine
+;;       Whitespace.enum
+;;       Control.enum
+;;       Punct.enum
+;;       Bracket.enum
+;;
+;; ;; OPEN — final category list (Upper/Lower/Digit/Whitespace/
+;; ;; Control/Punct/Bracket provisional); see gap-analysis.md §U16.
+
+
+;; =============================================================
+;; TYPE APPLICATION — {Constructor Args...}
+;; =============================================================
+;;
+;; Unchanged from v0.20.
+;;
+;;   {Vec U32}
+;;   {Option {Vec String}}
+;;   {Result U32 ConversionError}
+;;   {Map String {Vec Token}}
+;;   {HashMap String {Vec Token}}
+;;   {Array U32 16}                      ;; S11 — proposed; flagged
+;;   {Box Tree}
+;;   {Tree $Value}
+
+
+;; =============================================================
+;; STRUCT CONSTRUCTION (in expression position)
+;; =============================================================
+;;
+;; `{ :Type (:Field Expr) ... }` — unchanged.
+;;
+;;   {Point (Horizontal 3.0) (Vertical 4.0)}
+;;
+;;   {Page
+;;     (Content "")
+;;     (Orientation Portrait)
+;;     (Margin {Margin (Top 10) (Bottom 10) (Left 5) (Right 5)})}
+
+
+;; =============================================================
+;; BINARY OPERATORS
+;; =============================================================
+;;
+;; Precedence, low → high:
+;;   ||, &&, ==/!=/<=/>=/</>, +/-, *, /, %
+;;
+;; Division `/` is v0.21-landing (C5, accepted 2026-04-20).
+;; Modulo is `%`.
+;;
+;; Example body (inside a method):
+;;
+;;   (a self.Left + self.Right)          ;; BinAdd
+;;   (b self.Left - self.Right)          ;; BinSub
+;;   (c self.Left * self.Right)          ;; BinMul
+;;   (d self.Left / self.Right)          ;; BinDiv (v0.21)
+;;   (e self.Left % self.Right)          ;; BinMod
+;;
+;; Comparison:
+;;   self.Score == other.Score           ;; BinEq
+;;   self.Score != other.Score           ;; BinNotEq
+;;   self.Score <  other.Score           ;; BinLt
+;;   self.Score >  other.Score           ;; BinGt
+;;   self.Score <= other.Score           ;; BinLtEq
+;;   self.Score >= other.Score           ;; BinGtEq
+;;
+;; Logical:
+;;   (self.Active && other.Active) || self.Override
+;;
+;; Bitwise operators (S5 — PROPOSED): stdlib methods, not new
+;; syntax. See gap-analysis.md §S5.
+;;
+;;   ;; proposed: self.Mask.bitAnd(other)
+;;   ;;           self.Flags.bitOr(newFlag)
+;;   ;;           self.Value.shiftLeft(4)
+
+
+;; =============================================================
+;; UNARY OPERATORS (C6 — landed 2026-04-20)
+;; =============================================================
+;;
+;; Unary `-` and `!` landed in v0.21. Both appear as prefixes on
+;; expressions.
+;;
+;; Negation (-):
+;;   (offset I32 -42)                    ;; literal negation
+;;   (neg -x)                            ;; on a local
+;;   (shift -self.Count)                 ;; on a field access
+;;
+;; Logical NOT (!):
+;;   (valid !self.Failed)
+;;   (| !self.Ready
+;;     ( True )  ^Option:None
+;;     ( False ) Unit
+;;   |)
+;;
+;; Deref `*` is OPEN — see gap-analysis.md §U1. If accepted,
+;; would dispatch via stdlib Deref trait.
+
+
+;; =============================================================
+;; POSTFIX OPERATORS — field access, method call, try-unwrap
+;; =============================================================
+;;
+;; Unchanged from v0.20. Left-to-right chaining.
+;;
+;;   self.stage1(input).stage2.stage3(self.Config)
+;;
+;; `expr.Field` — FieldAccess (Pascal suffix)
+;; `expr.method(args)` — MethodCall (camel suffix)
+;; `expr?` — TryUnwrap (on Result/Option)
+
+
+;; =============================================================
+;; EXPRESSION ATOMS
+;; =============================================================
+;;
+;; Every atom form from v0.20 survives.
+;;
+;;   &instance              BorrowExpr (shared borrow of a local)
+;;   ~&instance             MutBorrowExpr
+;;   self                   SelfRef
+;;   :instance              InstanceRef (bare local)
+;;   :Type:method(args)     PathCall
+;;   :Type:Variant          PathVariant
+;;   :Variant               BareVariant
+;;   :Literal               LiteralExpr
+;;   [ <Body> ]             InlineEval (block as expression)
+;;   (| <Match> |)          MatchExpr
+;;   [| <Loop> |]           LoopExpr
+;;   {| <Iter> [body] |}    IterExpr
+;;   { :Type +(:Field <Expr>) }  StructExpr
+
+
+;; =============================================================
+;; RFI — .rfi files (Rust foreign interfaces)
+;; =============================================================
+;;
+;; Rust foreign interfaces live in `.rfi` files, one group per
+;; file. Under II-L, each `.rfi` file declares ONE foreign group.
+;; The filename is the group name.
+
+;; Filesystem path:
+;;   FileSystem.rfi
+
+;; File content:
+(readToString &path Path {Result String Error})
+(writeString &path Path &content String {Result Unit Error})
+(exists &path Path Bool)
+(remove &path Path {Result Unit Error})
+
+;; Rust equivalent:
+;;   extern "Rust" {
+;;       fn read_to_string(path: &Path) -> Result<String, Error>;
+;;       fn write_string(path: &Path, content: &str)
+;;           -> Result<(), Error>;
+;;       ...
+;;   }
+;;
+;; Each entry is a signature. An `.rfi` group is callable via
+;; `Rfi:FileSystem:readToString(path)` from inside `.effect`
+;; files (not `.impl` — a pure impl cannot call RFI).
+
+;; Filesystem path:
+;;   Lexer.rfi
+
+;; File content:
+(lex &source String {Vec Token})
+(tokenize &source String {Vec Token})
+
+
+;; =============================================================
+;; EXEC — Name.exec files (entry-point programs)
+;; =============================================================
+;;
+;; An exec file IS an executable program. The filename is the
+;; program's name (the binary target). Content is a program body:
+;; a sequence of statements.
+
+;; Filesystem path:
+;;   Hello.exec
+
+;; File content:
+(element Element:Fire)
+[StdOut:print(element.describe)]
+
+;; Rust equivalent:
+;;   fn main() {
+;;       let element = Element::Fire;
+;;       println!("{}", element.describe());
+;;   }
+;;
+;; The file's grammar = `<Body>`: a sequence of Statements
+;; followed by an optional tail expression. No module header.
+;; No name declaration. The filename `Hello.exec` becomes the
+;; executable name.
+;;
+;; A larger exec file:
+
+;; Filesystem path:
+;;   Parser.exec
+
+;; File content:
+(args Args:fromProcess)
+(source Rfi:FileSystem:readToString(args.first)?)
+(lexer Lexer:new(source))
+(tokens lexer.tokenize)
+(parser Parser:new(tokens))
+(ast parser.parse?)
+[StdOut:print(ast.debug)]
+
+;; Effect closure: `Rfi:FileSystem:readToString` is effectful, so
+;; a `FileReader.effect` must be linked. If the build links
+;; `FileReader~LocalFs.effect`, the program reads from the local
+;; filesystem. For tests, swap in `FileReader~Memory.test-impl`.
+
+
+;; =============================================================
+;; RUST FEATURE COVERAGE SCORECARD (v0.21)
+;; =============================================================
+;;
+;; Comprehensive table — every Rust feature Li hasn't rejected,
+;; mapped to its aski v0.21 expression. Items explicitly OUT by
+;; Li are marked accordingly.
+;;
+;; LEGEND:  L = landed · P = proposed (see refs) · U = unspec'd ·
+;;          OUT = confirmed out (design.md citation)
+;;
+;; PRIMITIVES
+;;   U8–U64 I8–I64 F32 F64 Bool String Char Vec Option Box Result
+;;     L — in Primitive::all() or equivalent
+;;   Unit as value — U (Unit variant exists; literal form open)
+;;   U128 / I128 — U
+;;   Usize / Isize — U
+;;   &str borrowed slice — U (aski has String; no &str distinction)
+;;   Never / `!` — P (§N2 — add as zero-arity primitive)
+;;   Rc / Arc / Cell / RefCell / Mutex / RwLock — U
+;;   HashMap / BTreeMap / HashSet — U (type applications of stdlib types OK)
+;;
+;; COMPOUND TYPES
+;;   Struct (named fields)                  L  — Name.struct
+;;   Struct (self-typed fields)              L
+;;   Enum (bare / data / struct variants)    L  — Name.enum
+;;   Newtype                                 L  — Name.newtype
+;;   Nested enum / struct                    L  — (| |) / {| |} in body
+;;   Tuple                                   OUT — design.md §No Tuples
+;;   Array [T; N]                            P  — {Array T N} (§S11)
+;;   Slice [T]                               U  — §U5
+;;   Union                                   U
+;;
+;; REFERENCES & POINTERS
+;;   &T shared borrow                        L
+;;   &mut T                                  L  — `~&T`
+;;   'a lifetime generics                    OUT-ish — replaced by origins
+;;   'static                                 P  — conventional PlaceName
+;;   Place-based origins 'Place              L
+;;   View types {| fields |}                 L
+;;   *const T / *mut T raw pointer           U
+;;
+;; CALLABLE TYPES
+;;   fn pointer fn(A) -> B                   U
+;;   Fn / FnMut / FnOnce traits              U
+;;   Closure literal |x| body                P/U — §S4 (Position A/B/C open)
+;;   Callable trait (Position A)             L-adjacent — used in Apply / Collect
+;;
+;; TYPE SYSTEM
+;;   Generic type params {$Value}            L
+;;   Trait bounds $Value{Clone Debug}        L
+;;   Super-traits                            L
+;;   Associated types (decl + binding)       L
+;;   Associated consts                       P  — §S9
+;;   Method-level generics                   L
+;;   Where clauses                           U
+;;   GATs                                    U
+;;   HRTB for<'a>                            U
+;;   const generics                          U
+;;   impl Trait (input / output)             U
+;;   dyn Trait                               P  — §U14 syntax, §S6 semantics
+;;   PhantomData                             U  — aski tracks params structurally
+;;   Higher-kinded types                     U  — §U20
+;;   Dependent types                         U  — §U21
+;;
+;; CONTROL FLOW
+;;   match                                   L
+;;   if / else (via match on Bool)           L-idiom
+;;   if let / while let                      P  — via match with `_` (§C4)
+;;   while                                   L
+;;   for                                     L  — iteration
+;;   loop (infinite)                         U  — §U19 (while true workable)
+;;   break / continue / labels               P  — §U13 (sigil spelling open)
+;;   return / ?                              L
+;;   async / await                           U
+;;
+;; EXPRESSIONS
+;;   + - * %                                 L
+;;   /                                       L  — v0.21 (§C5, landed 2026-04-20)
+;;   == != < > <= >=                         L
+;;   && ||                                   L
+;;   Bitwise & | ^ << >>                     P  — §S5 stdlib methods
+;;   Unary -                                 L  — v0.21 (§C6)
+;;   Unary !                                 L  — v0.21 (§C6)
+;;   Unary * (deref)                         U  — §U1
+;;   Assignment =                            U  — §U7 (mutation via methods)
+;;   Compound assignment +=                  U  — §U7
+;;   Method call .method(…)                  L
+;;   Field access .Field                     L
+;;   Cast as                                 P  — §S7 (stdlib From/Into)
+;;   Range .. ..=                            P  — §S2
+;;   Array literal [x; n]                    U  — §U4
+;;   Tuple literal                           OUT
+;;   Struct literal                          L  — StructConstruct
+;;   Block as expression                     L  — InlineEval
+;;   Closure literal                         P/U — §S4
+;;   Macro invocation foo!()                 U
+;;
+;; PATTERNS
+;;   Wildcard _                              L  — landed 2026-04-19
+;;   Variant match                           L
+;;   Variant bind                            L
+;;   Or-pattern [A B] (variants)             L
+;;   String literal                          L
+;;   Literal patterns (int/float/char/bool)  P  — §C3
+;;   Struct destructuring                    P  — §U11 (binding rule open)
+;;   Tuple destructuring                     OUT
+;;   Reference pattern &x                    U
+;;   Binding name @ pattern                  U  — `@` is visibility
+;;   Range pattern 0..=9                     U
+;;   Guard (if cond)                         U
+;;   Rest ..                                 U
+;;   General or-pattern A | B (non-variant)  U
+;;
+;; ITEMS
+;;   Struct / Enum / Newtype / Const         L  — per-kind .struct/.enum/etc.
+;;   Trait / TraitImpl                       L  — .trait / .impl
+;;   Module header                           OUT-in-source — directory = module (§II-L)
+;;   Free function                           OUT — design.md §No Free Functions
+;;   Inherent impl                           U  — §U9 (spec silent)
+;;   Type alias                              U  — §S1 (user preference OUT)
+;;   Static item                             U
+;;   Submodule mod                           OUT-in-source — directory IS the submodule
+;;   macro_rules                             U  — replaced by .derivation files
+;;   Proc macros                             U  — replaced by .derivation files
+;;   extern block                            L-alt — handled by .rfi files
+;;
+;; VISIBILITY
+;;   pub / public                            L  — unprefixed filename / `@` on fields
+;;   default private                         L  — `_` filename prefix / bare field
+;;   pub(crate) / pub(super) / pub(in path)  P  — §N4 / §U10 (deferred)
+;;
+;; SAFETY
+;;   unsafe                                  U  — proposed .unsafe-impl surface
+;;   transmute                               U
+;;   Raw pointer deref                       U
+;;
+;; ERROR HANDLING
+;;   Result<T, E>                            L
+;;   Option<T>                               L
+;;   ? try-unwrap                            L
+;;   panic!                                  U
+;;   Error trait                             U
+;;
+;; STRINGS & LITERALS
+;;   String literal "…"                      L
+;;   Escape sequences                        U — basic \n / \t only
+;;   Raw string r"…"                          P — §N8 (triple-quote proposed)
+;;   Byte string b"…"                          U
+;;   Char literal 'x'                        OUT-replaced — Char library (§U16)
+;;   Byte literal b'x'                       U
+;;   Int literal (decimal)                   L
+;;   Int literal hex/oct/bin                 P — §N8
+;;   Numeric separators 1_000                P — §N8
+;;   Typed integer suffix 42u32              P — §N8
+;;   Float literal                           L
+;;   Bool literal (true / false)             U — §U2 / §U3 (variant-form today)
+;;
+;; TRAITS (stdlib — mostly U, depending on stdlib buildout)
+;;   From / Into / TryFrom / TryInto         P — §S7
+;;   Clone / Copy / Debug / Display /
+;;   PartialEq / Eq / Hash / PartialOrd /
+;;   Ord / Default                           U — no stdlib spec yet
+;;   AsRef / Borrow / Deref                  U
+;;   Iterator trait                          U — iteration syntax landed
+;;   Fn / FnMut / FnOnce                     U
+;;   Index / IndexMut                        U
+;;   Add / Sub / Mul / Div / Rem             U — operators bound, traits not
+;;   BitAnd / BitOr / Shl / Shr              P — §S5
+;;   Neg / Not                               P — §C6 (landed at operator level)
+;;   Send / Sync                             U
+;;   Drop                                    U
+;;
+;; CONCURRENCY                               All U. Nothing spec'd.
+;;
+;; ATTRIBUTES
+;;   #[derive(…)]                            L-alt — .derivation surface
+;;   #[cfg(…)]                               U     — platform-impl surfaces
+;;   Doc comments ///                        P     — §N7 (shelved)
+;;
+;; MODULES / NAMESPACING
+;;   Directory = module                      L
+;;   imports per-directory file              L
+;;   Inline mod blocks                       OUT-in-source
+;;   pub use re-exports                      OUT — §7.7 decomposition.md
+;;
+;; FFI
+;;   extern "Rust" / "C" / …                 L-alt — .rfi surface
+;;
+;; TESTING / BENCHMARKING
+;;   #[cfg(test)]                            L-alt — .test-impl surface
+;;   #[bench]                                L-alt — .bench-impl surface
+;;   Test harness                            U     — build-time wiring
+
+
+;; =============================================================
+;; OPEN QUESTIONS — flagged here, not resolved
+;; =============================================================
+;;
+;; Each open question is tracked in gap-analysis.md. This section
+;; lists the open items that affect v0.21 source syntax directly.
+;;
+;; U1  Deref *x                              — if in, via stdlib Deref
+;; U2  Bool in LiteralPattern                 — True/False variant vs literal form
+;; U3  true / false as literal tokens         — depends on U2
+;; U4  Array literal expression syntax        — methods-only vs literal form
+;; U5  Slice types [T]                        — presence / replacement
+;; U6  Narrowing conversions                  — explicit methods vs TryFrom
+;; U7  Bare = and compound +=                 — currently method-only
+;; U9  Inherent impls                         — grammar silent; design silent
+;; U10 Finer-grained visibility               — pub(crate) et al.
+;; U11 Struct destructuring binding rule      — Option A / B / C
+;; U12 Closure philosophy                     — Position A / B / C
+;; U13 break / continue / labeled-break       — `^`-family / `<<` / method-style
+;; U14 dyn sigil                              — `?{Trait}` proposed
+;; U15 Enum discriminant lookahead            — `[Ok 200]` shape proposed
+;; U16 Char-as-nested-enum                    — final category list open
+;; U17 Methods-over-operators rubric          — applies to bitwise/cast/assign
+;; U19 Native infinite-loop form              — 5 candidates
+;; U20 Higher-kinded types                    — open
+;; U21 Dependent types                        — open
+;; C3  Numeric literal patterns               — int/float/bool
+;; C4  if / if let / while let                — sugar over match
+;; C7  Borrow of arbitrary expression         — place-expression borrows
+;; S1  Type aliases                           — user preference OUT
+;; S2  Range expressions                      — 0..n / a..=b
+;; S3  break / continue                       — see U13
+;; S4  Closures                               — see U12
+;; S5  Bitwise operators                      — stdlib methods
+;; S7  Cast as                                — stdlib From/Into
+;; S8  Const expressions                      — Value is Expr not Literal
+;; S9  Associated consts in traits            — {| Name Type ?Default |}
+;; S11 Array / slice types                    — see U4/U5
+;; N2  Never type                             — zero-arity primitive
+;; N3  Assignment / compound assignment       — see U7
+;; N4  Scoped visibility                      — see U10
+;; N5  Enum discriminants                     — see U15
+;; N6  Attributes                             — replaced by .derivation
+;; N7  Doc comments                           — shelved
+;; N8  Numeric / string literal variants      — hex/bin/raw/separator
+;;
+;; See `gap-analysis.md` for the full analysis of each.
+
+
+;; =============================================================
+;; EDGE CASES FROM II-L DECOMPOSITION
+;; =============================================================
+;;
+;; The filename encoding is not claimed to be exhaustive. A few
+;; cases need settling (these are distinct from the U/S/N list
+;; above; they're II-L-specific and surface during v0.21 spec work):
+;;
+;; E1. Impl filename with cross-module trait AND cross-module target:
+;;     `Display@std~Shape@shapes.impl` works. But if the target
+;;     itself has type arguments, we reach nested `[...]`:
+;;     `Show[Token]~Parser[Token]@lib.impl`. Tokenization of
+;;     filenames with multiple `[...]` is well-defined but dense.
+;;     Recommendation: keep filenames flat when possible; push
+;;     complex generics into the body's generic slot.
+;;
+;; E2. Bounded blanket with trait argument:
+;;     `From[Vec]~$(Clone).impl` — blanket target with bound,
+;;     trait takes an arg. Parses under the filename grammar but
+;;     reads heavy. Alternative: move the trait arg into the body.
+;;
+;; E3. Multi-char operators in filenames — none present (aski
+;;     names are ASCII Pascal / camel / alphanumeric), so no
+;;     risk of `<=` or `=>` appearing.
+;;
+;; E4. Case sensitivity — macOS default filesystems are
+;;     case-insensitive. `Point.struct` and `point.struct` collide
+;;     on macOS even though aski's case rule makes them different
+;;     (Pascal vs camel). Since all top-level names are Pascal,
+;;     this doesn't surface in practice — but stdlib-level
+;;     conventions should enforce Pascal-only top-level filenames.
+;;
+;; E5. Filename length — some filesystems cap at 255 bytes. An
+;;     impl filename like
+;;     `VeryLongTraitName[VeryLongArgumentType]~VeryLongTargetName@very_long_module.impl`
+;;     can push this. Mitigation: such cases are structural hints
+;;     that the trait/target names should be refactored. II-L
+;;     naturally pressures toward shorter, clearer names.
+;;
+;; E6. Colons in filenames — some filesystems disallow `:`. Aski
+;;     paths internal to source use `:` (`Char:Upper:A`) but on
+;;     disk this maps to directory hierarchy (`Char/Upper/A.enum`
+;;     or equivalent). Filename-level paths never use `:`; they
+;;     use `/` (directory) or `@` (module qualifier) or `~` (impl
+;;     separator) or `[]` (args).
+;;
+;; E7. The `_` prefix conflicts with some name choices — a type
+;;     semantically named "Underscore" would need special handling.
+;;     The `_` prefix is reserved for visibility; names starting
+;;     with `_` followed by Pascal are private objects, not
+;;     objects whose name legitimately starts with underscore.
+;;     Unicode workaround not needed under ASCII-only filenames.
+;;
+;; E8. Duplicate-stem collision — `Foo.enum` + `Foo.struct` in
+;;     the same directory is a HARD ERROR (veric rejects). One
+;;     name per directory regardless of kind. See
+;;     `decomposition.md §7.9`.
+;;
+;; E9. Derivation output — when derivations synthesize impls,
+;;     where do those impls live? Proposed:
+;;     `.build/derivations/*.impl` — filesystem-visible (not
+;;     hidden in memory), build-managed (humans don't edit).
+;;     See `decomposition.md §6.7`.
+;;
+;; E10. Symlinks — veric's filesystem walk does NOT follow
+;;      symlinks. A symlink following would produce two paths
+;;      for one file (duplicate identity). See §7.10.
+;;
+;; E11. Impl stem conflict when multiple bindings — if an impl
+;;      has BOTH a trait arg in the stem AND an associated-type
+;;      binding in the body, both forms encode the same info.
+;;      Convention: prefer ONE encoding per impl, not both.
+;;      Trait arg in stem when multiple impls want different
+;;      args (e.g., From[String]~Token vs From[U32]~Token).
+;;      Associated-type binding in body when the impl has ONE
+;;      canonical args set.
+;;
+;; E12. Name lookup performance — filesystem walks for every
+;;      module lookup sound slow. Mitigation: veric builds a
+;;      name-index on first walk, invalidates on file change.
+;;      Standard incremental-build technique; not an II-L
+;;      problem.
+
+
+;; =============================================================
+;; PRECEDENT
+;; =============================================================
+;;
+;; II-L is not novel at every level. Its components appear in
+;; many languages and systems; the completeness of the commitment
+;; is what distinguishes v0.21.
+;;
+;;   Java — one public class per file (filename = class name,
+;;          filesystem enforces). Kind, visibility, imports still
+;;          in source.
+;;   Smalltalk — identity is location via a class browser, but
+;;          locations live in a proprietary image; no filesystem
+;;          exposure.
+;;   OCaml — .mli / .ml pairing, two surfaces per module.
+;;          Types, constructors, values share both files.
+;;   Plan 9 — "everything is a file" for system resources; did
+;;          not apply to source code.
+;;   Unison — content-addressed definitions; names are tags
+;;          on hashes. No standard filesystem representation.
+;;   Hazel — structure editing in a custom editor; filesystem
+;;          is secondary.
+;;   Clojure — one namespace per file by convention.
+;;   Elm — one module per file, enforced.
+;;
+;; Each moved 1–2 metadata channels to the filesystem or to a
+;; structural medium. v0.21 moves six: name, kind, visibility,
+;; module, imports, and sub-structure. None of the predecessors
+;; pushed all six onto the standard filesystem simultaneously.
+;;
+;; The filesystem is the universal tree every tool already knows.
+;; Moving six channels onto it means aski's identifier graph
+;; gets native support from: every shell, every editor, every
+;; version-control system, every code-search tool, every
+;; incremental-build system, every LLM that reads files. No
+;; custom tooling required.
+
+
+;; =============================================================
+;; WHAT v0.20 HAD THAT v0.21 HAS ELSEWHERE OR DOESN'T NEED
+;; =============================================================
+;;
+;; Condensed inventory.
+;;
+;; RETIRED FROM SOURCE (moved to filesystem):
+;;   Module header `(Name [Imports])`
+;;   Imports line inside module header
+;;   Root visibility `@` prefix on Enum/Struct/Newtype/Const/Trait/Impl
+;;   Root delimiters `(...)` / `{...}` / `(|...|)` / `{|...|}` / `[|...|]`
+;;   Root name declaration inside delimiter
+;;   Impl-name-at-position-0 inside `[...]`
+;;
+;; MOVED TO FILENAME (new syntax on disk):
+;;   Enum name           → StemName.enum
+;;   Struct name         → StemName.struct
+;;   Newtype name        → StemName.newtype
+;;   Const name          → StemName.const
+;;   Trait name          → StemName.trait
+;;   Impl identity       → TraitName~TargetName.impl (with optional [Args], @Module, $, $(...))
+;;   Visibility          → `_` prefix (private) / no prefix (public)
+;;   Module              → directory name
+;;   Imports             → per-directory `imports` file
+;;   Kind                → file extension (.enum / .struct / ... / .impl / .effect / ...)
+;;   Platform            → `.platform.impl` / `.platform.effect` middle segment
+;;   Test mode           → `.test-impl` extension
+;;   Bench mode          → `.bench-impl` extension
+;;   Derivation          → `.derivation` extension
+;;
+;; STAYED IN SOURCE (body-level):
+;;   Field visibility `@` (inside .struct bodies)
+;;   Newtype transparency `@Type` (inside .newtype body)
+;;   Generic slot `{$Param ...}`
+;;   Super-trait bounds `{Super1 Super2}`
+;;   Method signatures and bodies
+;;   Method-level generics `?{$Param}`
+;;   Associated-type bindings `(AssocName Type)` in impls
+;;   Match / loop / iteration / block / or-pattern / local decl
+;;   Path syntax `Type:Variant:...:method(...)`
+;;   Borrow / mutable / origin / view-type sigils
+;;   Early return `^`, try-unwrap `?`
+;;   Binary / unary / postfix operators
+;;   Literals inside bodies
+;;   Struct construction `{ :Type (:Field Expr) ... }`
+;;   Char library access `Char:Upper:A` etc. (U16)
+
+
+;; =============================================================
+;; END NOTES
+;; =============================================================
+;;
+;; This file is a reference by example. It is not the grammar —
+;; the grammar lives in `.synth` files per surface. Each surface
+;; gets a Root.synth describing its body content. The outer
+;; identity (name, kind, visibility, module) is drawn from the
+;; filesystem walk; per-surface grammar handles the body.
+;;
+;; For architectural detail on the surfaces, see:
+;;   multi-surface/00-vision.md        — the pitch
+;;   multi-surface/01-surfaces.md      — the inventory
+;;   multi-surface/02-types.md         — .enum / .struct / .newtype / .const bodies
+;;   multi-surface/03-traits.md        — .trait bodies
+;;   multi-surface/04-impls.md         — .impl bodies, named impls, coherence
+;;   multi-surface/05-effects-and-platforms.md — .effect bodies, capability
+;;   multi-surface/06-derivations-and-testing.md — .derivation, .test-impl
+;;   multi-surface/decomposition.md    — II-L principle derivation
+;;
+;; For open questions, see `gap-analysis.md`.
+;; For settled decisions, see `design.md`.
+;; For proposal status levels, see `bridge/paradigm.md`.
+;;
+;; v0.21 = II-L applied. Every section above either replaces or
+;; defers to the filesystem a channel that v0.20 carried in source.
+;; The file is what it refers to. Nothing more.
