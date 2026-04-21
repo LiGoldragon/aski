@@ -132,7 +132,7 @@
 @{Point (@Horizontal F64) (@Vertical F64)}   ;; public struct, public fields
 @{Counter (@Count U32) (Cache U32)}           ;; public struct, Count public, Cache private
 @{SecretData (Key String) (Nonce U64)}        ;; public struct, all fields private
-{InternalPoint (X F64) (Y F64)}                ;; private struct
+{InternalPoint (Horizontal F64) (Vertical F64)} ;; private struct
 
 ;; generic struct
 @{Pair {$Left $Right} (@LeftValue $Left) (@RightValue $Right)}

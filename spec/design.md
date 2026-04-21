@@ -779,7 +779,7 @@ foo Type                         ;; no borrow — no origin, no view
 ```
 
 See also:
-- `aski/Origin.synth` — `'Place`, `'Place.Field`, `'(A B)` forms
+- `aski/Origin.synth` — `'Place`, `'Place.Field`, `'(Left Right)` forms
 - `aski/FieldPath.synth` — recursive `.Field` chain
 - `aski/ViewType.synth` — `{| Field ... |}` shape
 - `aski/Param.synth` — where origins + views plug into params
