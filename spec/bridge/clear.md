@@ -87,7 +87,7 @@ Adds `TagKind::BinDiv`, `Expr::BinDiv { Left, Right }`. Lexer already emits
 
 ---
 
-### C6. Unary operators `-` / `!` — ACCEPTED 2026-04-20 (deref still open below)
+### C6. Unary operators `-` / `!` — ACCEPTED 2026-04-20; deref `*` ACCEPTED 2026-04-21
 
 ```rust
 let neg = -x;
@@ -117,13 +117,10 @@ let failed = !result.is_ok();
 Adds `TagKind::UnaryNeg`, `UnaryNot` and corresponding Expr variants.
 Adjacency handles `- 1` (unary) vs `a - b` (binary).
 
-**Open question — deref `*x`:** an earlier draft said "skipped — aski has
-no raw pointers." That conflates two unrelated questions. Raw pointers
-(`*const T` / `*mut T`) are Unspec'd per [paradigm.md](paradigm.md) —
-not rejected. Deref could still be meaningful for smart-pointer types
-(Box, Rc, etc., via a stdlib Deref trait) even if raw pointers never
-land. Decide: (a) no unary `*` at all; (b) unary `*` dispatches to a
-stdlib `Deref` trait; (c) defer until raw-pointer question is decided.
+**Deref `*x` — ACCEPTED 2026-04-21 (option b).** Unary `*x` dispatches
+to a stdlib `Deref` trait's method. Methods-over-operators direction.
+Separate from raw pointers (which stay Unspec'd per paradigm.md).
+ExprUnary gains `#UnaryDeref#_*_ <ExprUnary>`.
 
 ---
 

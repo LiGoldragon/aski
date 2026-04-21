@@ -42,9 +42,38 @@
 ;;
 ;; Newly landed (see v0.21 update notes):
 ;;   * C5 Division `/` (accepted 2026-04-20)
-;;   * C6 Unary `-` and `!` (accepted 2026-04-20); deref `*` stays open
+;;   * C6 Unary `-` and `!` (accepted 2026-04-20)
 ;;   * U16 Char-as-nested-enum: `Char:Upper:A` and similar
 ;;     (no char literal syntax)
+;;   * U1 Deref `*` (accepted 2026-04-21, dispatches via stdlib Deref)
+;;   * C4 if / if-let / while-let as match idioms (doc-only)
+;;   * C7 Borrow of place expressions (&self.field, &item.inner.deep)
+;;   * S2 Range expressions 0..n / a..=b
+;;   * S5 Bitwise via stdlib BitOps trait methods
+;;   * S7 Cast via stdlib From / Into / TryFrom trait methods
+;;   * S8 Const expressions (const RHS is Expr, not just Literal)
+;;   * S9 Associated constants in traits and impls
+;;   * S11 Array primitive {Array T N}
+;;   * N1 'Static and lifetime generics via origins (conventional
+;;        PlaceName; no grammar change)
+;;   * N2 Never primitive for divergent functions
+;;   * N3 Assignment / compound assignment via stdlib Counter methods
+;;        (= / += bare forms still open — see outliers-v021.md)
+;;   * N5 Enum discriminants `[Ok 200]`
+;;   * N8 Literal lexer extensions (hex/bin/oct, numeric separators,
+;;        raw triple-strings)
+;;
+;; Pick-and-merge (Li to confirm in v0.21):
+;;   U11 struct destructuring (Option A pun-on-field)
+;;   U13 break/continue sigil (3 candidates)
+;;   U14 dyn sigil `?{Trait}`
+;;   U15 discriminant shape confirm
+;;   U17 methods-over-operators rubric as standing rule
+;;   C3  LiteralPattern scope
+;;   S4  Closures Position A (B/C in outliers)
+;;
+;; Outliers (see outliers-v021.md):
+;;   U3, U4, U5, U6, U7, U10, U12, U19, U20, U21, S6, N4
 ;;
 ;; Delimiters (v0.21 body-internal — unchanged from v0.20):
 ;;   ()      Categorical single thing (local decl, typed field,
@@ -286,19 +315,33 @@ Ping
 ;; `{|Config ...|}` = nested struct scoped under Event. Access
 ;; via `Event:Config`. Again, can be split to `Event/Config.struct`.
 
-;; Enum with discriminant variants (U15 — OPEN) ----------------
+;; Enum with discriminant variants (N5 / U15) -----------------
 
-;; ;; OPEN — see gap-analysis.md §U15 (enum discriminant lookahead)
-;; ;; Proposed shape under v0.21:
+;; Filesystem path:
+;;   HttpStatus.enum
+[Ok 200]
+[NotFound 404]
+[ServerError 500]
+
+;; Rust equivalent:
+;;   #[repr(u16)]
+;;   pub enum HttpStatus {
+;;       Ok = 200,
+;;       NotFound = 404,
+;;       ServerError = 500,
+;;   }
 ;;
-;;   HttpStatus.enum:
-;;     [Ok 200]
-;;     [NotFound 404]
-;;     [ServerError 500]
+;; Uses `[VariantName Literal]` at enum-body position — `[` is
+;; a free first-token at enum-body (no other variant form uses it
+;; at that position). First-token decidable.
 ;;
-;; ;; Uses `[VariantName Literal]` at enum-body position — free in
-;; ;; v0.20 grammar and consistent with U15's proposal. Status:
-;; ;; proposed, not landed. See multi-surface/02-types.md too.
+;; Grammar (Enum.synth adds alternative):
+;;   #DiscriminantVariant#[@VariantName @Literal]
+;;
+;; ;; MERGED FROM N5 — shape per bridge/clear.md §N5 and
+;; ;; small-decisions.md §N5.
+;; ;; PICK-AND-MERGE — Li to confirm [Ok 200] shape; see
+;; ;; gap-analysis.md §U15.
 
 ;; Nested split (optional) -------------------------------------
 
@@ -595,18 +638,34 @@ F64 1.618
 ;; Rust equivalent:
 ;;   const INTERNAL_TUNING_FACTOR: f64 = 1.618;
 
-;; Const expression (S8 — PROPOSED) ---------------------------
+;; Const expression (S8 — MERGED 2026-04-21) ------------------
 
-;; ;; OPEN — see gap-analysis.md §S8 (const expressions)
-;; ;; Proposed: const RHS is an <Expr>, not only a <Literal>.
-;; ;;
-;; ;;   MaxSessions.const:
-;; ;;     U32 MaxUsers * 4
-;; ;;
-;; ;; Rust equivalent:
-;; ;;   pub const MAX_SESSIONS: u32 = MAX_USERS * 4;
-;; ;;
-;; ;; veric would const-eval the RHS. Status: not landed.
+;; The RHS of a const file is an <Expr>, not only a <Literal>.
+;; veric const-evals the expression at build time. Operands must
+;; be prior consts or literals in scope.
+
+;; Filesystem path:
+;;   MaxUsers.const
+U32 100
+
+;; Filesystem path:
+;;   MaxSessions.const
+U32 MaxUsers * 4
+
+;; Filesystem path:
+;;   BufferSize.const
+U32 {(MaxUsers + MaxSessions) * 8}
+
+;; Rust equivalent:
+;;   pub const MAX_USERS: u32 = 100;
+;;   pub const MAX_SESSIONS: u32 = MAX_USERS * 4;
+;;   pub const BUFFER_SIZE: u32 = (MAX_USERS + MAX_SESSIONS) * 8;
+;;
+;; Grammar change: Root.synth Const's RHS changes from
+;; `@Literal` to `<Expr>`.
+;;
+;; ;; MERGED FROM S8 — see gap-analysis.md §S8 and
+;; ;; bridge/clear.md §S8.
 
 
 ;; =============================================================
@@ -693,23 +752,32 @@ Edge
 ;; Method-level generic slot `?{$Output}` comes after the method
 ;; name, before its parameters.
 
-;; Trait with associated const (S9 — PROPOSED) ----------------
+;; Trait with associated const (S9 — MERGED 2026-04-21) ------
 
-;; ;; OPEN — see gap-analysis.md §S9 (associated consts)
-;; ;;
-;; ;; BoundedQueue.trait:
-;; ;;   Item
-;; ;;   {| Capacity U32 |}                  ;; no default
-;; ;;   {| DefaultTimeoutMs U64 30000 |}    ;; with default
-;; ;;   (push ~&self :value self:Item)
-;; ;;
-;; ;; Rust equivalent:
-;; ;;   pub trait BoundedQueue {
-;; ;;       type Item;
-;; ;;       const CAPACITY: u32;
-;; ;;       const DEFAULT_TIMEOUT_MS: u64 = 30_000;
-;; ;;       fn push(&mut self, value: Self::Item);
-;; ;;   }
+;; Filesystem path:
+;;   BoundedQueue.trait
+Item
+{| Capacity         U32 |}
+{| DefaultTimeoutMs U64 30000 |}
+(push ~&self :value self:Item)
+
+;; Rust equivalent:
+;;   pub trait BoundedQueue {
+;;       type Item;
+;;       const CAPACITY: u32;
+;;       const DEFAULT_TIMEOUT_MS: u64 = 30_000;
+;;       fn push(&mut self, value: Self::Item);
+;;   }
+;;
+;; TraitItem forms now include:
+;;   {| @AssocName Type |}             ;; required assoc const
+;;   {| @AssocName Type ?Default |}    ;; with default expr
+;;
+;; First-token decidable at TraitItem position:
+;;   `{|` → AssocConst, `(` → method, Pascal bare → AssocType.
+;;
+;; ;; MERGED FROM S9 — see gap-analysis.md §S9 and
+;; ;; bridge/clear.md §S9.
 
 ;; Trait with super-traits ------------------------------------
 
@@ -1108,14 +1176,29 @@ Error {Display Debug}
 ;; See 04-impls.md for the full scope-activation model. See
 ;; gap-analysis.md §S6 for dyn/named-impl interactions.
 
-;; Impl with associated const binding (S9 — PROPOSED) --------
+;; Impl with associated const binding (S9 — MERGED 2026-04-21)
 
-;; ;; OPEN — see gap-analysis.md §S9
-;; ;;
-;; ;; BoundedQueue~FastQueue.impl:
-;; ;;   (Item Token)
-;; ;;   {| Capacity U32 256 |}
-;; ;;   (push ~&self :value Token [ ... ])
+;; Filesystem path:
+;;   BoundedQueue~FastQueue.impl
+
+;; File content:
+(Item Token)
+{| Capacity U32 256 |}
+(push ~&self :value Token [ ... ])
+
+;; Rust equivalent:
+;;   impl BoundedQueue for FastQueue {
+;;       type Item = Token;
+;;       const CAPACITY: u32 = 256;
+;;       fn push(&mut self, value: Token) { … }
+;;   }
+;;
+;; TraitImplItem forms include:
+;;   (@AssocName Type)                ;; assoc type binding
+;;   {| @AssocName Type @Value |}     ;; assoc const binding
+;;   (camelName ...body)              ;; method body
+;;
+;; ;; MERGED FROM S9 — see gap-analysis.md §S9.
 
 ;; Full impl with every item kind (S9 assumed) ----------------
 
@@ -1436,7 +1519,50 @@ Error {Display Debug}
 ;; Signed:
 ;;   I32 -42                          ;; Int with unary minus (C6)
 ;;   F64 0.25
-;;   String "line one\nline two"      ;; escape sequences (see N8)
+;;   String "line one\nline two"      ;; escape sequences
+
+;; Literal lexer extensions (N8 — MERGED 2026-04-21) ----------
+;;
+;; The lexer accepts the following integer / string forms. Zero
+;; grammar change. (Char-literal and bool-literal items dropped
+;; from the earlier N8 bundle — chars go through the Char library
+;; U16; `true`/`false` remains open as U3.)
+;;
+;; Integer literals:
+;;   U32 0xFF_FF_FF_00                ;; hex (0x prefix)
+;;   U8  0b0010_1100                  ;; binary (0b prefix)
+;;   U32 0o755                        ;; octal (0o prefix)
+;;   U64 7_900_000_000                ;; numeric separators
+;;
+;; String literals:
+;;   "\n"                             ;; escape sequences in normal strings
+;;   """C:\Users\li\projects"""        ;; raw triple-string (no escapes)
+;;   """
+;;     Line one.
+;;     Line two.
+;;   """                               ;; multi-line raw
+;;
+;; Inside a .const file using these:
+;;
+;;   ;; Mask.const
+;;   U32 0xFF_FF_FF_00
+;;
+;;   ;; Flag.const
+;;   U8  0b0010_1100
+;;
+;;   ;; Perm.const
+;;   U32 0o755
+;;
+;;   ;; Pop.const
+;;   U64 7_900_000_000
+;;
+;;   ;; WindowsPath.const
+;;   String """C:\Users\li\projects"""
+;;
+;; ;; MERGED FROM N8 — see gap-analysis.md §N8 and
+;; ;; bridge/clear.md §N8. Char-literal form SUPERSEDED by U16
+;; ;; (Char library). Bool-literal carve-out remains open (U3) —
+;; ;; see outliers-v021.md.
 
 
 ;; =============================================================
@@ -1489,10 +1615,40 @@ Error {Display Debug}
 ;;   (shared &rawLocal)
 ;;   (mutRef ~&rawLocal)
 ;;
-;; ;; OPEN — see gap-analysis.md §C7 (borrow-of-arbitrary-expression)
-;; ;; Borrowing arbitrary paths (e.g., `&self.field`, `&item.inner`)
-;; ;; is currently restricted to bare locals. Expansion to place
-;; ;; expressions pending.
+;; Borrow of path expression (C7 — MERGED 2026-04-21) ----------
+;;
+;; Borrows accept place expressions — `self`, `:instance`, and any
+;; depth of `.FieldName` suffixes. Method calls are NOT place
+;; expressions (matches Rust).
+;;
+;;   (describe &self String [
+;;     self.summarize(&self.Header &self.Body.Inner)
+;;   ])
+;;
+;;   (mutate ~&self [
+;;     self.commit(~&self.Buffer)
+;;   ])
+;;
+;; Grammar:
+;;
+;;   ;; PlaceExpr.synth — new dialect
+;;   <PlaceAtom> *#PlaceField#.:FieldName
+;;
+;;   ;; PlaceAtom.synth — new dialect
+;;   #SelfPlace#self
+;;   #InstancePlace#:instance
+;;
+;;   ;; ExprAtom.synth — BorrowExpr/MutBorrowExpr now take PlaceExpr
+;;   #BorrowExpr#_&_?<Origin>?<ViewType><PlaceExpr>
+;;   #MutBorrowExpr#_~__&_?<Origin>?<ViewType><PlaceExpr>
+;;
+;; Aski-core restructures `BorrowExpr`/`MutBorrowExpr` to hold a
+;; `PlaceExpr` (self or instance, with zero-or-more field steps)
+;; instead of a bare `InstanceName`. Scope: `&foo.method()` is NOT
+;; a place expression — method calls produce values, not places.
+;;
+;; ;; MERGED FROM C7 — see gap-analysis.md §C7 and
+;; ;; bridge/clear.md §C7.
 
 
 ;; =============================================================
@@ -1545,7 +1701,58 @@ Error {Display Debug}
 ;;   [:Var1 :Var2]           — VariantAlt (or-pattern)
 ;;   "literal"               — StringMatch
 ;;
-;; Struct destructuring pattern (U11 — OPEN): see gap-analysis.md §U11
+;; Struct destructuring pattern (U11 — PICK-AND-MERGE) --------
+;;
+;; Recommended shape (Option A — pun on field name): the binding
+;; name is derived from the field name, lowercased. Field `Width`
+;; → binding `width`; Field `Height` → binding `height`.
+;;
+;;   ( Rectangle { Width Height } )     ;; binds width: F64, height: F64
+;;   ;; in arm body: width * height
+;;
+;; Full explicit form also available when rename is needed:
+;;
+;;   ( Rectangle { Width w Height h } ) ;; explicit rename (if A allows)
+;;
+;; Grammar sketch (under Option A):
+;;   #StructPattern#{ :Type *( :FieldName ?@binding ) }
+;;   #StructVariantBind#:Variant { *( :FieldName ?@binding ) }
+;;
+;; ;; PICK-AND-MERGE — Li to confirm Option A (pun on field) vs
+;; ;; B or C; see gap-analysis.md §U11 and
+;; ;; bridge/big-decisions.md C2+S10+N10.
+
+;; if / if-let / while-let idiom (C4 — MERGED 2026-04-21) ------
+;;
+;; No `if` grammar. Every conditional form is a match on Bool or
+;; on Option/Result variants.
+
+;; if / else (via match on Bool):
+;;
+;;   (| self.ready
+;;     ( True )   self.run
+;;     ( False )  self.wait
+;;   |)
+;;
+;; if-let (via match with wildcard):
+;;
+;;   (| self.result
+;;     ( Some value ) [self.useValue(value)]
+;;     ( _ )          Unit
+;;   |)
+;;
+;; while-let (while-loop whose body includes the match):
+;;
+;;   [| self.queueHasWork
+;;     (| self.dequeue
+;;       ( Some task )  [self.handle(task)]
+;;       ( None )       ^^
+;;     |)
+;;   |]
+;;
+;; No grammar change — these are documentation of the idiom.
+;; ;; MERGED FROM C4 — see gap-analysis.md §C4 and
+;; ;; bridge/clear.md §C4.
 
 ;; Loop (inside a method body):
 ;;
@@ -1564,6 +1771,57 @@ Error {Display Debug}
 ;;   (printAll &self {| self.List.item
 ;;     [StdOut:print(item.Name)]
 ;;   |})
+;;
+;; Iteration binding (N10 — clarification) ---------------------
+;;
+;; The bit after `.` is a single camelCase binding name — one
+;; name, one element per iteration. For iterating with an index
+;; or with tuple-valued streams, the source expression must yield
+;; a single structured type per step, not a pair:
+;;
+;;   ;; over a Vec of IndexedItem (a named struct):
+;;   {| self.Items.enumerate.pair
+;;     [StdOut:print(pair.Index pair.Item.Name)]
+;;   |}
+;;
+;; There is no tuple-valued iteration source in aski — streams of
+;; paired values are streams of named structs. Struct-destructure
+;; inside the arm (U11) can unpack when that lands.
+;;
+;; ;; MERGED FROM N10 — see gap-analysis.md §N10.
+
+;; Range expressions (S2 — MERGED 2026-04-21) -----------------
+;;
+;; `..` and `..=` are multi-char operators at expression position.
+;; Produce a range value usable as an iteration source or as any
+;; expression.
+;;
+;;   {| 0..10.step
+;;     [StdOut:print(step)]
+;;   |}
+;;
+;;   {| 0..=max.stepIncl
+;;     [self.process(stepIncl)]
+;;   |}
+;;
+;;   (window self.Cursor..self.Cursor + 16)  ;; bind a range
+;;
+;; Grammar:
+;;
+;;   ;; ExprRange.synth — new dialect between ExprCompare and ExprAnd
+;;   <ExprCompare> #Range#_.._ <ExprCompare>
+;;   <ExprCompare> #RangeIncl#_.._=_ <ExprCompare>
+;;   <ExprCompare>
+;;
+;;   ;; ExprAnd.synth — chain descends into ExprRange
+;;   <ExprRange> #BinAnd#&& <ExprAnd>
+;;   <ExprRange>
+;;
+;; Lexer adds `..` and `..=`. Aski-core adds `Expr::Range {Start End}`
+;; and `Expr::RangeIncl {Start End}`.
+;;
+;; ;; MERGED FROM S2 — see gap-analysis.md §S2 and
+;; ;; bridge/clear.md §S2.
 
 ;; ExprStmt (side effect in body, wrapped in `[...]`):
 ;;
@@ -1584,8 +1842,27 @@ Error {Display Debug}
 ;;
 ;;   (result self.compileFiles(files)?)
 
-;; Break / continue / labeled break (U13 — OPEN): see
-;; gap-analysis.md §U13 and bridge/small-decisions.md §S3.
+;; Break / continue / labeled break (U13 — PICK-AND-MERGE) -----
+;;
+;; Three candidate spellings; Li picks one.
+;;
+;; Candidate 1 — `^`-family composed (from small-decisions.md §S3):
+;;   [| true [^^result] |]              ;; break-with-value
+;;   [| cond [^^] |]                    ;; bare break
+;;   [| cond [^~] |]                    ;; continue
+;;   [| 'outer true [^^'outer result] |]  ;; labeled break
+;;
+;; Candidate 2 — `<<` / `>>` bigrams:
+;;   [| true [<<result] |]              ;; break-with-value
+;;   [| cond [<<] |]                    ;; bare break
+;;   [| cond [>>] |]                    ;; continue
+;;
+;; Candidate 3 — method-style on a loop handle:
+;;   [| 'loopHandle true [~loopHandle.break(result)] |]
+;;   [| 'loopHandle cond [~loopHandle.continue] |]
+;;
+;; ;; PICK-AND-MERGE — Li to pick one candidate; see
+;; ;; gap-analysis.md §U13 and bridge/small-decisions.md §S3.
 
 
 ;; =============================================================
@@ -1603,14 +1880,15 @@ Error {Display Debug}
 
 
 ;; =============================================================
-;; MUTATION
+;; MUTATION (N3 — MERGED 2026-04-21)
 ;; =============================================================
 ;;
 ;; `~name.method(args)` is a mutation statement — the mutation
 ;; marker `~` at expression position on a method call.
 ;;
 ;;   (tick ~&self [
-;;     [~self.Count.set(self.Count + 1)]
+;;     [~self.Count.addAssign(1)]
+;;     [~self.Last.set(Time:now)]
 ;;     self.Count
 ;;   ])
 ;;
@@ -1619,11 +1897,65 @@ Error {Display Debug}
 ;; declaration site), a borrow (`~&self`), or a method call
 ;; (`~counter.set(...)`).
 ;;
-;; Assignment `=` and compound `+=` are not part of the grammar
-;; in v0.21. Mutation flows through method calls on mutable
-;; locals, on `~&self`, or on stdlib primitive methods like
-;; `U32:set(...)`, `U32:addAssign(...)`. See gap-analysis.md §U7
-;; for the open question on whether `=` ever lands.
+;; Mutation is method-only. Stdlib trait `Counter $Value` carries
+;; the general mutation surface:
+;;
+;;   ;; Counter.trait file content (stdlib):
+;;   {$Value}
+;;   (set       ~&self &value  $Value)
+;;   (addAssign ~&self &delta  $Value)
+;;   (subAssign ~&self &delta  $Value)
+;;   (mulAssign ~&self &factor $Value)
+;;
+;; Impls on U8–U64, I8–I64, F32, F64.
+;;
+;; Assignment `=` and compound `+=` are not grammar. Mutation
+;; flows through method calls on mutable locals, on `~&self`, or
+;; on stdlib primitive methods like `U32:set(...)` /
+;; `U32:addAssign(...)`.
+;;
+;; ;; MERGED FROM N3 — see gap-analysis.md §N3 and
+;; ;; bridge/clear.md §N3. U7 (bare = and compound +=) remains
+;; ;; open — see outliers-v021.md.
+
+
+;; =============================================================
+;; CAST / CONVERSION (S7 — MERGED 2026-04-21)
+;; =============================================================
+;;
+;; Zero grammar change. Stdlib traits `From` / `Into` / `TryFrom`
+;; across numeric primitives. Narrowing conversions use explicit
+;; lossy method names so the semantics are visible at the call
+;; site.
+;;
+;;   (widened   U32:from(byte))                          ;; widen U8 -> U32
+;;   (narrowed  U8:truncate(wide))                       ;; explicit lossy
+;;   (converted {Result U32 ConversionError}
+;;              U32:tryFrom(big))                        ;; fallible
+;;
+;; Stdlib traits (paths in stdlib):
+;;
+;;   ;; From.trait
+;;   {$Source}
+;;   (from :value $Source Self)
+;;
+;;   ;; Into.trait
+;;   {$Target}
+;;   (into self $Target)
+;;
+;;   ;; TryFrom.trait
+;;   {$Source $Failure}
+;;   (tryFrom :value $Source {Result Self $Failure})
+;;
+;; Narrowing operations use method names per op:
+;;   truncate  — drop high bits (wrap modulo 2^N)
+;;   saturate  — clamp to target min/max
+;;   wrap      — explicit wrap-around (same as truncate for unsigned)
+;;
+;; ;; MERGED FROM S7 — see gap-analysis.md §S7 and
+;; ;; bridge/clear.md §S7. Narrowing form is (a) explicit lossy
+;; ;; method names — Li to confirm (a) vs (b) single TryFrom
+;; ;; vs (c) both; see outliers-v021.md.
 
 
 ;; =============================================================
@@ -1650,6 +1982,57 @@ Error {Display Debug}
 ;;
 ;; Filename-level `@` (impl files only — `Trait@Module`) is
 ;; filesystem syntax; source-level path syntax uses `:` only.
+
+
+;; =============================================================
+;; NEVER PRIMITIVE (N2 — MERGED 2026-04-21)
+;; =============================================================
+;;
+;; `Never` is a zero-arity primitive for functions that do not
+;; return normally. Mirrors Rust's `!`.
+;;
+;;   (panic &msg String Never)
+;;   (runForever ~&self Never [| true [self.tick] |])
+;;
+;; Rust equivalent:
+;;   fn panic(msg: &str) -> ! { … }
+;;   fn run_forever(&mut self) -> ! { loop { self.tick() } }
+;;
+;; Zero grammar change. Add `("Never", 0)` to `Primitive::all()`.
+;; Sema representation: a zero-variant enum (one plausible shape;
+;; rsc maps to `!` in Rust projection when it lands).
+;;
+;; ;; MERGED FROM N2 — see gap-analysis.md §N2 and
+;; ;; bridge/clear.md §N2.
+
+
+;; =============================================================
+;; 'Static AND LIFETIME GENERICS (N1 — MERGED 2026-04-21)
+;; =============================================================
+;;
+;; Rust's lifetime generics (`<'a>` on fns) are covered by aski's
+;; place-based origins (see REFERENCES, BORROWS, ORIGINS, VIEWS
+;; above). `'Static` is a conventional PlaceName for program-root
+;; scope — already a valid `PlaceRef` under the origin grammar.
+;;
+;;   (longest &'(left right) left String
+;;            &'(left right) right String
+;;            &'(left right) String [ … ])
+;;
+;;   (findName &id U32 &'Static String [
+;;     GlobalTable.lookup(id)
+;;   ])
+;;
+;; Rust equivalent:
+;;   fn longest<'a>(left: &'a str, right: &'a str) -> &'a str { … }
+;;   fn find_name(id: u32) -> &'static str { GLOBAL_TABLE.lookup(id) }
+;;
+;; No grammar change — `'Static` is a place name by convention.
+;; Every other "lifetime generic" scenario maps to a place-union
+;; origin.
+;;
+;; ;; MERGED FROM N1 — see gap-analysis.md §N1 and
+;; ;; bridge/clear.md §N1.
 
 
 ;; =============================================================
@@ -1730,9 +2113,35 @@ Error {Display Debug}
 ;;   {Result U32 ConversionError}
 ;;   {Map String {Vec Token}}
 ;;   {HashMap String {Vec Token}}
-;;   {Array U32 16}                      ;; S11 — proposed; flagged
 ;;   {Box Tree}
 ;;   {Tree $Value}
+
+;; Array type (S11 — MERGED 2026-04-21) -----------------------
+;;
+;; Array is a two-arg primitive: `{Array Element Size}`. The
+;; second arg is an integer-const expression that const-evals to
+;; U32. Requires S8 (const expressions) for size expressions.
+;;
+;;   (buffer {Array U32 16} Array:fill(16 0))
+;;   (table  {Array {Array U8 8} 8} Table:blank)
+;;
+;;   ;; BoardSize.const -> U32 8
+;;   (board {Array Cell BoardSize * BoardSize})
+;;
+;; Rust equivalent:
+;;   let buffer: [u32; 16] = ...;
+;;   let table:  [[u8; 8]; 8] = Table::blank();
+;;   let board:  [Cell; BOARD_SIZE * BOARD_SIZE];
+;;
+;; Zero grammar change. Add `("Array", 2)` to `Primitive::all()`.
+;; Scope: integer-const size only (U32). No string, no char, no
+;; structured-literal size parameters.
+;;
+;; ;; MERGED FROM S11 — see gap-analysis.md §S11 and
+;; ;; bridge/clear.md §S11. No array-literal expression form —
+;; ;; construction via Array:fill / Array:of methods only. Array
+;; ;; literal expression syntax stays open (U4) — see
+;; ;; outliers-v021.md.
 
 
 ;; =============================================================
@@ -1778,12 +2187,32 @@ Error {Display Debug}
 ;; Logical:
 ;;   (self.Active && other.Active) || self.Override
 ;;
-;; Bitwise operators (S5 — PROPOSED): stdlib methods, not new
-;; syntax. See gap-analysis.md §S5.
+;; Bitwise operations (S5 — MERGED 2026-04-21) ---------------
 ;;
-;;   ;; proposed: self.Mask.bitAnd(other)
-;;   ;;           self.Flags.bitOr(newFlag)
-;;   ;;           self.Value.shiftLeft(4)
+;; Zero grammar change — bitwise ops are stdlib methods on the
+;; `BitOps` trait. Reusing `&` or `|` as bitwise operators would
+;; collide with borrow and logical-or.
+;;
+;;   (flags    Permission:Read.bitOr(Permission:Write))
+;;   (readable flags.bitAnd(Permission:Read).ne(0))
+;;   (shifted  byte.shiftLeft(4))
+;;   (masked   word.bitAnd(0xFF))
+;;   (inverted word.bitNot)
+;;
+;; Stdlib trait (in stdlib under BitOps.trait):
+;;
+;;   ;; BitOps.trait file content:
+;;   (bitAnd    &self &other Self Self)
+;;   (bitOr     &self &other Self Self)
+;;   (bitXor    &self &other Self Self)
+;;   (shiftLeft  &self &bits U8 Self)
+;;   (shiftRight &self &bits U8 Self)
+;;   (bitNot    &self Self)
+;;
+;; Impls on U8 / U16 / U32 / U64 / I8 / I16 / I32 / I64.
+;;
+;; ;; MERGED FROM S5 — see gap-analysis.md §S5 and
+;; ;; bridge/clear.md §S5.
 
 
 ;; =============================================================
@@ -1805,8 +2234,135 @@ Error {Display Debug}
 ;;     ( False ) Unit
 ;;   |)
 ;;
-;; Deref `*` is OPEN — see gap-analysis.md §U1. If accepted,
-;; would dispatch via stdlib Deref trait.
+;; Unary deref `*` (U1 — ACCEPTED 2026-04-21) --------------------
+;;
+;; `*x` dispatches to the stdlib `Deref` trait's method. Methods-
+;; over-operators direction: the operator is surface, the semantics
+;; are a trait method.
+;;
+;;   (derefed *boxedValue)                ;; unary * on a Box,
+;;                                        ;; dispatches to Box:Deref:deref
+;;   (payload *self.Inner)                ;; deref a field
+;;
+;; Grammar (ExprUnary dialect):
+;;   #UnaryDeref#_*_ <ExprUnary>
+;;
+;; Separate from raw pointers (which stay Unspec'd). Deref applies
+;; to smart-pointer types (Box, Rc, future Arc) — any type with a
+;; Deref impl.
+;; ;; MERGED FROM U1 — ACCEPTED 2026-04-21 (see gap-analysis.md §U1)
+
+
+;; =============================================================
+;; METHODS-OVER-OPERATORS RUBRIC (U17 — PICK-AND-MERGE)
+;; =============================================================
+;;
+;; S5 bitwise, S7 cast, and N3 assignment all land as stdlib
+;; methods rather than operator syntax. That is consistent with
+;; a proposed standing rubric rule:
+;;
+;;   "Methods over operators for bit ops, casts, assignment, and
+;;    similar. Stdlib traits, not new syntax."
+;;
+;; Under that rubric, future operator-family additions default to
+;; stdlib trait methods unless Li specifically carves out syntax.
+;;
+;; ;; PICK-AND-MERGE — Li to confirm this as standing rule; see
+;; ;; gap-analysis.md §U17.
+
+
+;; =============================================================
+;; DYN SIGIL (U14 — PICK-AND-MERGE; semantics in outliers)
+;; =============================================================
+;;
+;; Syntactic shape (from bridge/small-decisions.md §S6):
+;; `?{Trait}` at type position marks "unknown concrete type that
+;; satisfies Trait."
+;;
+;;   (emit ~&writer {?Writer} :msg String [~writer.write(msg)])
+;;   (nextToken ~&src {?Iterator Token} {Option Token}
+;;     [~src.next])
+;;   (boxed {Box {?Callable U32 U32}} …)
+;;
+;; Grammar:
+;;
+;;   ;; Type.synth — add DynType
+;;   #DynType#_?_{ <TypeApplication> }
+;;
+;; Alternatives that were considered: `&{Trait}` (conflicts with
+;; borrow), `{^Trait}` (conflicts with early return), a new
+;; delimiter pair (all six allocated).
+;;
+;; ;; PICK-AND-MERGE — Li to confirm sigil `?{Trait}`; semantic
+;; ;; design (S6 — vtable vs discriminant vs no-dyn vs transient-
+;; ;; only) in outliers-v021.md.
+
+
+;; =============================================================
+;; CLOSURES — Position A (S4 — PICK-AND-MERGE; A merged, B/C in outliers)
+;; =============================================================
+;;
+;; Position A (named-type impls of Callable) is the zero-grammar-
+;; change baseline. A closure in Rust is an ad-hoc named struct
+;; in aski, with an explicit impl of the `Callable` trait.
+;;
+;; Filesystem path:
+;;   Increment.struct
+(@Amount U32)
+
+;; Filesystem path:
+;;   Callable[U32,U32]~Increment.impl
+
+;; File content:
+(call &self &input U32 U32 [input + self.Amount])
+
+;; At a call site (inside some method body):
+;;
+;;   (items self.Nums.map(&Increment {Amount 1}))
+;;
+;; Stdlib trait (reference):
+;;
+;;   ;; Callable.trait file content:
+;;   {$Input $Output}
+;;   (call &self $Input $Output)
+;;
+;; ;; PICK-AND-MERGE — Position A merged; Position B (inline
+;; ;; closure sugar desugaring to synthetic types) and Position C
+;; ;; (explicit-capture shorthand) remain OPEN. See outliers-v021.md
+;; ;; and bridge/big-decisions.md §S4.
+
+
+;; =============================================================
+;; LITERAL PATTERN SCOPE (C3 — PICK-AND-MERGE)
+;; =============================================================
+;;
+;; LiteralPattern covers Int / Float / Str at match-arm position.
+;; Proposed scope:
+;;
+;;   (| code
+;;     ( 0 )    "pending"                 ;; IntMatch
+;;     ( 200 )  "ok"
+;;     ( 3.14 ) "tau-adjacent"            ;; FloatMatch
+;;     ( "hello" ) "greeting"             ;; StrMatch
+;;     ( _ )    "other"
+;;   |)
+;;
+;; Bool is NOT a LiteralPattern — matched via variant patterns
+;; `( True )` / `( False )` on a Bool variant-enum. Char is NOT
+;; a LiteralPattern — matched via path patterns on the Char
+;; library (e.g., `( Char:Upper:A )`).
+;;
+;; Grammar:
+;;   ;; Pattern.synth — add LiteralPattern, remove StringMatch (subsumed)
+;;   #WildcardPattern#_
+;;   #VariantBind#:Variant @binding
+;;   #VariantAlt#[ +:Variant ]
+;;   #VariantMatch#:Variant
+;;   #LiteralPattern#:Literal    ;; covers Int, Float, Str
+;;
+;; ;; PICK-AND-MERGE — Li to confirm scope excludes Bool (via
+;; ;; variants) and Char (via U16 library). See gap-analysis.md
+;; ;; §C3 and bridge/clear.md §C3.
 
 
 ;; =============================================================
@@ -1944,7 +2500,8 @@ Error {Display Debug}
 ;;   U128 / I128 — U
 ;;   Usize / Isize — U
 ;;   &str borrowed slice — U (aski has String; no &str distinction)
-;;   Never / `!` — P (§N2 — add as zero-arity primitive)
+;;   Never / `!` — L (§N2 — MERGED 2026-04-21, zero-arity primitive)
+;;   Array                                   L — {Array T N} (§S11 — MERGED 2026-04-21)
 ;;   Rc / Arc / Cell / RefCell / Mutex / RwLock — U
 ;;   HashMap / BTreeMap / HashSet — U (type applications of stdlib types OK)
 ;;
@@ -1955,50 +2512,52 @@ Error {Display Debug}
 ;;   Newtype                                 L  — Name.newtype
 ;;   Nested enum / struct                    L  — (| |) / {| |} in body
 ;;   Tuple                                   OUT — design.md §No Tuples
-;;   Array [T; N]                            P  — {Array T N} (§S11)
-;;   Slice [T]                               U  — §U5
+;;   Array [T; N]                            L  — {Array T N} (§S11, MERGED 2026-04-21)
+;;   Slice [T]                               U  — §U5 (outliers-v021.md)
 ;;   Union                                   U
 ;;
 ;; REFERENCES & POINTERS
 ;;   &T shared borrow                        L
 ;;   &mut T                                  L  — `~&T`
 ;;   'a lifetime generics                    OUT-ish — replaced by origins
-;;   'static                                 P  — conventional PlaceName
+;;   'static                                 L  — 'Static place name (§N1 MERGED 2026-04-21)
 ;;   Place-based origins 'Place              L
 ;;   View types {| fields |}                 L
+;;   Borrow of place expression              L  — §C7 (MERGED 2026-04-21)
 ;;   *const T / *mut T raw pointer           U
 ;;
 ;; CALLABLE TYPES
 ;;   fn pointer fn(A) -> B                   U
 ;;   Fn / FnMut / FnOnce traits              U
-;;   Closure literal |x| body                P/U — §S4 (Position A/B/C open)
-;;   Callable trait (Position A)             L-adjacent — used in Apply / Collect
+;;   Closure literal |x| body                P — §S4 Position A MERGED; B/C outliers
+;;   Callable trait (Position A)             L  — stdlib trait, zero grammar change
 ;;
 ;; TYPE SYSTEM
 ;;   Generic type params {$Value}            L
 ;;   Trait bounds $Value{Clone Debug}        L
 ;;   Super-traits                            L
 ;;   Associated types (decl + binding)       L
-;;   Associated consts                       P  — §S9
+;;   Associated consts                       L  — §S9 MERGED 2026-04-21
 ;;   Method-level generics                   L
 ;;   Where clauses                           U
 ;;   GATs                                    U
 ;;   HRTB for<'a>                            U
 ;;   const generics                          U
 ;;   impl Trait (input / output)             U
-;;   dyn Trait                               P  — §U14 syntax, §S6 semantics
+;;   dyn Trait                               P  — §U14 sigil PICK-AND-MERGE;
+;;                                              §S6 semantics in outliers
 ;;   PhantomData                             U  — aski tracks params structurally
-;;   Higher-kinded types                     U  — §U20
-;;   Dependent types                         U  — §U21
+;;   Higher-kinded types                     U  — §U20 (outliers)
+;;   Dependent types                         U  — §U21 (outliers)
 ;;
 ;; CONTROL FLOW
 ;;   match                                   L
-;;   if / else (via match on Bool)           L-idiom
-;;   if let / while let                      P  — via match with `_` (§C4)
+;;   if / else (via match on Bool)           L-idiom — §C4 MERGED 2026-04-21
+;;   if let / while let                      L-idiom — §C4 MERGED 2026-04-21
 ;;   while                                   L
 ;;   for                                     L  — iteration
-;;   loop (infinite)                         U  — §U19 (while true workable)
-;;   break / continue / labels               P  — §U13 (sigil spelling open)
+;;   loop (infinite)                         U  — §U19 (outliers)
+;;   break / continue / labels               P  — §U13 PICK-AND-MERGE
 ;;   return / ?                              L
 ;;   async / await                           U
 ;;
@@ -2007,21 +2566,21 @@ Error {Display Debug}
 ;;   /                                       L  — v0.21 (§C5, landed 2026-04-20)
 ;;   == != < > <= >=                         L
 ;;   && ||                                   L
-;;   Bitwise & | ^ << >>                     P  — §S5 stdlib methods
+;;   Bitwise & | ^ << >>                     L-via-methods — §S5 MERGED 2026-04-21
 ;;   Unary -                                 L  — v0.21 (§C6)
 ;;   Unary !                                 L  — v0.21 (§C6)
-;;   Unary * (deref)                         U  — §U1
-;;   Assignment =                            U  — §U7 (mutation via methods)
-;;   Compound assignment +=                  U  — §U7
+;;   Unary * (deref)                         L  — §U1 ACCEPTED 2026-04-21
+;;   Assignment =                            U  — §U7 (outliers; methods today)
+;;   Compound assignment +=                  U  — §U7 (outliers)
 ;;   Method call .method(…)                  L
 ;;   Field access .Field                     L
-;;   Cast as                                 P  — §S7 (stdlib From/Into)
-;;   Range .. ..=                            P  — §S2
-;;   Array literal [x; n]                    U  — §U4
+;;   Cast as                                 L-via-methods — §S7 MERGED 2026-04-21
+;;   Range .. ..=                            L  — §S2 MERGED 2026-04-21
+;;   Array literal [x; n]                    U  — §U4 (outliers)
 ;;   Tuple literal                           OUT
 ;;   Struct literal                          L  — StructConstruct
 ;;   Block as expression                     L  — InlineEval
-;;   Closure literal                         P/U — §S4
+;;   Closure literal                         P — §S4 Position A only; B/C outliers
 ;;   Macro invocation foo!()                 U
 ;;
 ;; PATTERNS
@@ -2030,8 +2589,8 @@ Error {Display Debug}
 ;;   Variant bind                            L
 ;;   Or-pattern [A B] (variants)             L
 ;;   String literal                          L
-;;   Literal patterns (int/float/char/bool)  P  — §C3
-;;   Struct destructuring                    P  — §U11 (binding rule open)
+;;   Literal patterns (int/float)            P  — §C3 PICK-AND-MERGE (scope)
+;;   Struct destructuring                    P  — §U11 PICK-AND-MERGE (binding rule)
 ;;   Tuple destructuring                     OUT
 ;;   Reference pattern &x                    U
 ;;   Binding name @ pattern                  U  — `@` is visibility
@@ -2072,29 +2631,32 @@ Error {Display Debug}
 ;;
 ;; STRINGS & LITERALS
 ;;   String literal "…"                      L
-;;   Escape sequences                        U — basic \n / \t only
-;;   Raw string r"…"                          P — §N8 (triple-quote proposed)
+;;   Escape sequences                        L — §N8 MERGED 2026-04-21
+;;   Raw string r"…"                          L — §N8 (triple-quote form MERGED)
 ;;   Byte string b"…"                          U
 ;;   Char literal 'x'                        OUT-replaced — Char library (§U16)
 ;;   Byte literal b'x'                       U
 ;;   Int literal (decimal)                   L
-;;   Int literal hex/oct/bin                 P — §N8
-;;   Numeric separators 1_000                P — §N8
-;;   Typed integer suffix 42u32              P — §N8
+;;   Int literal hex/oct/bin                 L — §N8 MERGED 2026-04-21
+;;   Numeric separators 1_000                L — §N8 MERGED 2026-04-21
+;;   Typed integer suffix 42u32              P — §N8 (typed-suffix still open)
 ;;   Float literal                           L
-;;   Bool literal (true / false)             U — §U2 / §U3 (variant-form today)
+;;   Bool literal (true / false)             U — §U2 / §U3 (outliers)
 ;;
 ;; TRAITS (stdlib — mostly U, depending on stdlib buildout)
-;;   From / Into / TryFrom / TryInto         P — §S7
+;;   From / Into / TryFrom / TryInto         L-via-methods — §S7 MERGED 2026-04-21
+;;   Callable                                L-via-methods — §S4 Position A stdlib
+;;   Counter (set/addAssign/subAssign/…)     L-via-methods — §N3 MERGED 2026-04-21
+;;   BitOps                                  L-via-methods — §S5 MERGED 2026-04-21
+;;   Deref                                   L-via-methods — §U1 dispatch via trait
 ;;   Clone / Copy / Debug / Display /
 ;;   PartialEq / Eq / Hash / PartialOrd /
 ;;   Ord / Default                           U — no stdlib spec yet
-;;   AsRef / Borrow / Deref                  U
+;;   AsRef / Borrow                          U
 ;;   Iterator trait                          U — iteration syntax landed
 ;;   Fn / FnMut / FnOnce                     U
 ;;   Index / IndexMut                        U
 ;;   Add / Sub / Mul / Div / Rem             U — operators bound, traits not
-;;   BitAnd / BitOr / Shl / Shr              P — §S5
 ;;   Neg / Not                               P — §C6 (landed at operator level)
 ;;   Send / Sync                             U
 ;;   Drop                                    U
@@ -2127,47 +2689,60 @@ Error {Display Debug}
 ;;
 ;; Each open question is tracked in gap-analysis.md. This section
 ;; lists the open items that affect v0.21 source syntax directly.
+;; Items MERGED in this pass are listed with their status; items
+;; still open are grouped by where Li needs to decide.
 ;;
-;; U1  Deref *x                              — if in, via stdlib Deref
-;; U2  Bool in LiteralPattern                 — True/False variant vs literal form
-;; U3  true / false as literal tokens         — depends on U2
-;; U4  Array literal expression syntax        — methods-only vs literal form
-;; U5  Slice types [T]                        — presence / replacement
-;; U6  Narrowing conversions                  — explicit methods vs TryFrom
-;; U7  Bare = and compound +=                 — currently method-only
-;; U9  Inherent impls                         — grammar silent; design silent
-;; U10 Finer-grained visibility               — pub(crate) et al.
-;; U11 Struct destructuring binding rule      — Option A / B / C
-;; U12 Closure philosophy                     — Position A / B / C
-;; U13 break / continue / labeled-break       — `^`-family / `<<` / method-style
-;; U14 dyn sigil                              — `?{Trait}` proposed
-;; U15 Enum discriminant lookahead            — `[Ok 200]` shape proposed
-;; U16 Char-as-nested-enum                    — final category list open
-;; U17 Methods-over-operators rubric          — applies to bitwise/cast/assign
+;; MERGED 2026-04-21 (in this v0.21 pass) ----------------------
+;; U1  Deref *x                               — ACCEPTED; stdlib Deref dispatch
+;; C4  if / if let / while let                — idiom docs
+;; C7  Borrow of place expression             — PlaceExpr grammar
+;; S2  Range expressions                      — 0..n / a..=b
+;; S5  Bitwise via stdlib                     — BitOps trait
+;; S7  Cast via stdlib                        — From/Into/TryFrom
+;; S8  Const expressions                      — Const RHS = Expr
+;; S9  Associated consts                      — {| Name Type ?Default |}
+;; S11 Array type                             — {Array T N}, size is const expr
+;; N1  'Static / lifetime generics            — conventional PlaceName
+;; N2  Never primitive                        — zero-arity addition
+;; N3  Assignment via stdlib methods          — Counter trait; = / += still open
+;; N5  Enum discriminants                     — [Variant Literal] form
+;; N8  Literal lexer extensions               — hex/bin/oct/separators/raw-str
+;; N10 Iteration binding clarification        — single camel binding note
+;;
+;; PICK-AND-MERGE flagged in v0.21 (Li to confirm) --------------
+;; U11 Struct destructuring                   — Option A/B/C
+;; U13 break / continue sigil                 — 3 candidates
+;; U14 dyn sigil `?{Trait}`                   — semantic S6 in outliers
+;; U15 Enum discriminant shape                — confirm [Ok 200]
+;; U17 Methods-over-operators rubric          — confirm as standing rule
+;; C3  LiteralPattern scope                   — Int/Float/Str (no Bool/Char)
+;; S4  Closures (Position A merged)           — B/C inline sugar in outliers
+;;
+;; In outliers-v021.md (non-conforming) ------------------------
+;; U3  true / false as literal tokens         — case-rule carve-out
+;; U4  Array literal expression               — delimiter-budget blocker
+;; U5  Slice types [T]                        — design decision needed
+;; U6  Narrowing conversions                  — pick form (S7 currently (a))
+;; U7  Bare = and compound +=                 — confirm method-only
+;; U10 Finer-grained visibility               — II-L semantic question
+;; U12 Closures Positions B/C                 — inline-sugar grammar
 ;; U19 Native infinite-loop form              — 5 candidates
 ;; U20 Higher-kinded types                    — open
 ;; U21 Dependent types                        — open
-;; C3  Numeric literal patterns               — int/float/bool
-;; C4  if / if let / while let                — sugar over match
-;; C7  Borrow of arbitrary expression         — place-expression borrows
-;; S1  Type aliases                           — user preference OUT
-;; S2  Range expressions                      — 0..n / a..=b
-;; S3  break / continue                       — see U13
-;; S4  Closures                               — see U12
-;; S5  Bitwise operators                      — stdlib methods
-;; S7  Cast as                                — stdlib From/Into
-;; S8  Const expressions                      — Value is Expr not Literal
-;; S9  Associated consts in traits            — {| Name Type ?Default |}
-;; S11 Array / slice types                    — see U4/U5
-;; N2  Never type                             — zero-arity primitive
-;; N3  Assignment / compound assignment       — see U7
+;; S6  dyn semantics                          — 4 positions
 ;; N4  Scoped visibility                      — see U10
-;; N5  Enum discriminants                     — see U15
+;;
+;; Deferred / prior state ---------------------------------------
+;; U2  Bool in LiteralPattern                 — see U3 in outliers
+;; U9  Inherent impls                         — spec silent
+;; U16 Char-as-nested-enum                    — SUPERSEDES char literal; category list open
+;; S1  Type aliases                           — user preference OUT
+;; S3  break / continue                       — see U13 PICK-AND-MERGE
 ;; N6  Attributes                             — replaced by .derivation
 ;; N7  Doc comments                           — shelved
-;; N8  Numeric / string literal variants      — hex/bin/raw/separator
 ;;
-;; See `gap-analysis.md` for the full analysis of each.
+;; See `gap-analysis.md` for the full analysis of each, and
+;; `outliers-v021.md` for items that couldn't merge this pass.
 
 
 ;; =============================================================

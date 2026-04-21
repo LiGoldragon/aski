@@ -247,13 +247,13 @@ not presume one.*
 
 ## Decisions presented as settled that weren't
 
-### U1. Deref `*x` — was "skipped because aski has no raw pointers"
-clear.md §C6 previously asserted deref was out because raw pointers
-are out. Two unrelated questions: raw pointers are Unspec'd
-(paradigm.md), and deref could still be meaningful for smart-pointer
-types (Box, Rc) via a stdlib `Deref` trait even if raw pointers never
-land. Options: (a) no unary `*` at all; (b) unary `*` dispatches to a
-stdlib `Deref`; (c) defer until raw-pointer question is decided.
+### U1. Deref `*x` — ACCEPTED 2026-04-21
+Resolved: unary `*x` dispatches to a stdlib `Deref` trait's method.
+Fits the methods-over-operators direction. ExprUnary gets a
+`#UnaryDeref#_*_ <ExprUnary>` alternative. Separate from raw
+pointers (which stay Unspec'd per paradigm.md) — Deref applies to
+smart-pointer types (Box, Rc, etc.) regardless of whether raw
+pointers ever land.
 
 ### U2. Bool in LiteralPattern — was "OUT because case rule"
 clear.md §C3 previously asserted Bool was out of LiteralPattern because
