@@ -108,11 +108,15 @@ enum Layer {
 ```aski
 @(Layer
   Flat
-  {| Bounded (@Min F64) (@Max F64) |})
+  {Bounded (Min F64) (Max F64)})
 ```
 
-`{|…|}` is a nested struct inside `()`. Access as
-`Layer:Bounded` with named fields.
+`{…}` inside `()` = struct-variant with named fields. Match as
+`Layer:Bounded` binding `Min` and `Height` via destructure.
+
+(Distinct from `{|…|}` inside an enum, which is a *nested struct
+definition* scoped to the enum's namespace — a type in Layer's
+scope, not a variant of Layer.)
 
 ## Discriminant variants (pending U15 decision)
 
@@ -170,7 +174,7 @@ enum Tree<T> {
 ```aski
 @(Tree {$Value}
   (Leaf $Value)
-  {Branch (@Left {Box {Tree $Value}}) (@Right {Box {Tree $Value}})})
+  {Branch (Left {Box {Tree $Value}}) (Right {Box {Tree $Value}})})
 ```
 
 Branch uses a struct variant with two named boxed-tree fields.
@@ -572,7 +576,7 @@ pub enum HttpError<T: Display + Debug> {
 @(HttpError {$Context{Display Debug}}
   [NotFound 404]
   (Timeout U64)
-  {Rejected (@Code U32) (@Reason String) (@Payload {Option $Context})}
+  {Rejected (Code U32) (Reason String) (Payload {Option $Context})}
   (Nested {Box {HttpError $Context}})
   Unhandled)
 ```

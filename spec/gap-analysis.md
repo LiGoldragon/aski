@@ -353,7 +353,7 @@ of types. `Char` is an enum with nested-enum variants by category
 via chained path: `Char:Upper:A`, `Char:Lower:A`, `Char:Digit:Zero`,
 `Char:Punct:Tilde`, etc. Case is carried by the outer variant, so no
 case-rule carve-out for letter names. Unicode fall-through via
-`{Code (@Codepoint U32)}` data-variant.
+`{Code (Codepoint U32)}` data-variant.
 
 **Still open:** (a) final category list (Upper/Lower/Digit/Whitespace/
 Control/Punct/Bracket provisional); (b) 3-segment path grammar

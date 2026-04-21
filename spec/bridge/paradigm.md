@@ -92,7 +92,7 @@ Legend: **L** Landed · **P** Proposed (with bridge-doc ref) · **U** Unspec'd �
 |---------|--------|-------|
 | Struct (named fields) | L | `{Name (@Field Type)…}` |
 | Struct (self-typed fields) | L | `{Name @FieldAsType…}` |
-| Enum (bare, data, struct variants) | L | `(Name Var1 (Var2 T) {Var3 (@F T)})` |
+| Enum (bare, data, struct variants) | L | `(Name Var1 (Var2 Type) {Var3 (Field Type)})` |
 | Newtype | L | `(\| Name WrappedType \|)` |
 | Nested enum / nested struct | L | `(\| \|)` / `{\| \|}` within enum or struct body |
 | Tuple | OUT | §No Tuples |
