@@ -410,7 +410,7 @@ use different impls without conflict.
 Blanket impls interact with concrete impls via ordering:
 
 ```aski
-@[BlanketDescribe Describe {$T{Debug}} $T [ ... ])
+@[BlanketDescribe Describe {$Value{Debug}} $Value [ ... ])
 
 @[SpecificDescribe Describe Element [ ... ])
 ```

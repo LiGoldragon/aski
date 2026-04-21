@@ -60,9 +60,9 @@ not just the generic-type level.
   (next ~&self {Option Token} [
     (| self.cursor < self.buffer.len
       ( True ) [
-        (t self.buffer.unchecked(self.cursor))
+        (token self.buffer.unchecked(self.cursor))
         ~self.cursor.addAssign(1)
-        Option:Some(t)
+        Option:Some(token)
       ]
       ( False ) Option:None
     |)

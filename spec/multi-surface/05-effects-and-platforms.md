@@ -326,8 +326,8 @@ Inside the program source, code references the traits normally:
 ;; time-display.impls
 @[Default TimeDisplay App [
   (display ~&self String [
-    (t System:now)                  ;; System comes from the active platform
-    t.toIso8601
+    (now System:now)                ;; System comes from the active platform
+    now.toIso8601
   ])
 ]]
 ```
@@ -345,14 +345,14 @@ overrides:
 ```aski
 ;; time-display.impls — cross-platform base
 @[Default TimeDisplay App [
-  (display ~&self String [ (t System:now) t.toIso8601 ])
+  (display ~&self String [ (now System:now) now.toIso8601 ])
 ]]
 
 ;; fancy-time-display.ios.impls — iOS-specific overlay
 @[IosFancy TimeDisplay App [
   (display ~&self String [
-    (t System:now)
-    t.toRelative                    ;; iOS-only: "2 minutes ago"
+    (now System:now)
+    now.toRelative                  ;; iOS-only: "2 minutes ago"
   ])
 ]]
 ```

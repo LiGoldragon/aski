@@ -32,10 +32,10 @@ let d: bool = true;
 
 ```aski
 ;; in a method body in .impls
-(a U32:new(100))
-(b I64:new(-50))
-(c F64:new(3.14))
-(d True)           ;; True and False are variants of a Bool enum (C3/C4 open)
+(count     U32:new(100))
+(balance   I64:new(-50))
+(pi        F64:new(3.14))
+(ready     True)           ;; True and False are variants of a Bool enum (C3/C4 open)
 ```
 
 ## Char
@@ -47,8 +47,8 @@ let lf: char = '\n';
 
 ```aski
 ;; no char literal syntax — Char is a library of types (U16 direction)
-(ch Char:Upper:A)
-(lf Char:Whitespace:Newline)
+(letter    Char:Upper:A)
+(newline   Char:Whitespace:Newline)
 ```
 
 ## String / str
@@ -59,8 +59,8 @@ let slice: &str = &s;
 ```
 
 ```aski
-(s String:from("hello"))
-(slice &s String)            ;; String type; borrow semantics via &
+(greeting   String:from("hello"))
+(borrowed   &greeting String)    ;; String type; borrow semantics via &
 ```
 
 Note: aski's String is the primitive; `&str` distinction folds into
@@ -648,7 +648,7 @@ let x = may_fail()?;
 
 ```aski
 (| valid ( False ) ^Result:Err(Error:Invalid) ( True ) Unit |)
-(x self.mayFail?)
+(result self.mayFail?)
 ```
 
 ---
@@ -725,8 +725,8 @@ let bytes = big as u8;
 ```
 
 ```aski
-(u U32:from(byte))
-(bytes U8:truncate(big))        ;; narrowing explicit
+(widened   U32:from(byte))
+(narrowed  U8:truncate(big))    ;; narrowing explicit
 ```
 
 ## Assignment (N3/U7 open)
@@ -779,11 +779,11 @@ fn find(key: &str) -> Option<Value> { … }
 ## ? operator
 
 ```rust
-let x = may_fail()?;
+let value = may_fail()?;
 ```
 
 ```aski
-(x self.mayFail?)
+(value self.mayFail?)
 ```
 
 ## panic! — U
@@ -1124,7 +1124,7 @@ let x = <MyType as MyTrait>::method(arg);
 
 ```aski
 ;; .impls
-(x MyImpl:method(arg))        ;; when MyImpl is the activation name
+(result MyImpl:method(arg))        ;; when MyImpl is the activation name
 ```
 
 Call through the named impl directly. No "fully qualified trait syntax"
@@ -1142,7 +1142,7 @@ because named impls make disambiguation automatic.
 | Enum bare / data / struct variants | `.types` | ✓ |
 | Discriminants | `.types` | U15 `[Name Literal]` |
 | Generic params | `.types` / `.traits` / `.impls` | ✓ |
-| Generic bounds | `.types` / `.traits` / `.impls` | `{$T{Bound}}` |
+| Generic bounds | `.types` / `.traits` / `.impls` | `{$Value{Bound}}` |
 | Super-traits | `.traits` | ✓ |
 | Associated types | `.traits` | ✓ |
 | Associated consts | `.traits` | S9 |
