@@ -8,8 +8,10 @@ Cross-checked against Mentci/RESTART-CONTEXT.md §13.*
 
 Only cases where aski **could not express** a Rust program, or would have to
 contort via RFI/workarounds. Features aski deliberately rejects (tuples,
-native `loop`, free functions, keywords, HKT, dependent types, shadowing
-same name twice) are NOT flagged.
+free functions, keywords, shadowing same name twice) are NOT flagged.
+Native `loop`, HKT, and dependent types were previously listed here
+as OUT but were Claude-authored without confirmation; they are now
+tracked as open questions §U19, §U20, §U21.
 
 Features already acknowledged in RESTART-CONTEXT §13 "Broader language
 evolution" (RFI expansion, trait objects, pattern guards, where clauses,
@@ -221,8 +223,6 @@ Only items with a prose citation in design.md qualify. Items below lack
 a citation; see §Unconsulted Claude decisions below for the others.
 
 - Tuples → design.md §No Tuples.
-- Native infinite `loop {}` → design.md §No Native Infinite-Loop Form.
-- Higher-kinded types, dependent types → design.md §Generics.
 - Free functions → design.md §No Free Functions.
 - Keywords → design.md §Delimiter-First.
 - Shadowing same name twice in a scope → design.md §Scopes Are a Tree.

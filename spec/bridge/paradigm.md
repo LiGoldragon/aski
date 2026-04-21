@@ -39,12 +39,14 @@ design.md explicitly rejects, in prose:
 
 1. **Tuples** — §No Tuples. Use structs with named fields.
 2. **Free functions** — §No Free Functions (with `main` exception).
-3. **Native infinite-loop form** — §No Native Infinite-Loop Form.
-   Use `while true`.
-4. **Higher-kinded types** — §Generics ("No higher-kinded types").
-5. **Dependent types** — §Generics ("No dependent types (yet)").
-6. **Keywords in source** — §Delimiter-First ("There are no keywords").
-7. **Re-shadowing the same name in one scope** — §Scopes Are a Tree.
+3. **Keywords in source** — §Delimiter-First ("There are no keywords").
+4. **Re-shadowing the same name in one scope** — §Scopes Are a Tree.
+
+Previous drafts of this list also included native-infinite-loop,
+higher-kinded types, and dependent types. Those were Claude-
+authored, not confirmed by Li. They're tracked as open questions —
+see gap-analysis.md §U19 (infinite loop), §U20 (HKT), §U21
+(dependent types).
 
 Everything else is either **spec'd and present** in the grammar, or
 **spec-silent** — the spec neither requires nor forbids it.
@@ -137,8 +139,8 @@ Legend: **L** Landed · **P** Proposed (with bridge-doc ref) · **U** Unspec'd �
 | `dyn Trait` | P | bridge/small-decisions.md §S6 syntax + big-decisions.md §S6 semantics |
 | PhantomData | U | Not spec'd |
 | Never `!` as type | P | bridge/clear.md §N2 |
-| Higher-kinded types | OUT | §Generics |
-| Dependent types | OUT | §Generics |
+| Higher-kinded types | U | Open — gap-analysis.md §U20 |
+| Dependent types | U | Open — gap-analysis.md §U21 |
 
 ## Control flow
 
@@ -149,7 +151,7 @@ Legend: **L** Landed · **P** Proposed (with bridge-doc ref) · **U** Unspec'd �
 | `if let` / `while let` | P | bridge/clear.md §C4 — via match with `_` wildcard |
 | `while` | L | `[\| cond body \|]` |
 | `for` | L | Iteration `{\| src.binding body \|}` |
-| `loop` (infinite) | L-idiom | `while true` pattern |
+| `loop` (infinite) | U | `while true` works today; dedicated form open — gap-analysis.md §U19 |
 | `break` / `continue` / labels | P | bridge/small-decisions.md §S3 (sigil spelling open) |
 | `return` / `?` | L | EarlyReturn / TryUnwrap |
 | `async` / `await` | U | Not spec'd |

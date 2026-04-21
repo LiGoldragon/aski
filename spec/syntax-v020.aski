@@ -277,7 +277,9 @@
 
 
 ;; =============================================================
-;; WHILE LOOP — condition required, infinite = `while true`
+;; WHILE LOOP — condition required; infinite-loop form is an open
+;; question (gap-analysis.md §U19). Today `while true` is the usable
+;; pattern; a dedicated form may land later.
 ;; =============================================================
 
 [Parser TokenReader [

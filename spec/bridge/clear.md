@@ -468,7 +468,9 @@ let board: [Cell; BOARD_SIZE * BOARD_SIZE];
 ```
 
 Zero grammar change. Add `("Array", 2)` to `Primitive::all()`. Second
-arg must const-eval to U32 — that's what S8 enables.
+arg must const-eval to U32 — that's what S8 enables. **Scope is
+explicitly integer-const only** (Array size is a U32). No string,
+no char, no structured-literal const parameters.
 
 **Open question — array literal expression:** Rust has `[1, 2, 3]` as
 an expression form. This proposal has none; construction goes via

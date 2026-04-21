@@ -55,8 +55,11 @@ Each file carries concrete Rust / aski / synth examples per item.
    operator syntax) is the proposed direction. This is the position
    behind §S5, §S7, §N3 — but the decisions themselves are still
    open (see [gap-analysis.md §U17](gap-analysis.md#u17-methods-over-operators-rubric)).
-6. **Compile to Rust (bootstrap).** Features Rust can't express
-   (HKT, dependent types) stay OUT per design.md §Generics. Features
+6. **Compile to Rust (bootstrap).** HKT and dependent types are
+   open questions (gap-analysis.md §U20, §U21), not settled OUT.
+   Rust has limited versions of both (GATs, const generics); whether
+   aski lifts these into first-class aski source (desugaring to Rust)
+   is undecided. Features
    Rust has but sema's binary model doesn't yet have a design for
    (e.g., dyn dispatch) need the semantic design before syntax use
    lands. Aski is *intended* to eventually support all of Rust

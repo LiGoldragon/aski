@@ -277,11 +277,15 @@ declaration site.
 
 ## We Compile to Rust
 
-Aski compiles to Rust via sema. Do not design constructs that
-Rust cannot express. No higher-kinded types. No dependent types
-(yet). The bootstrap engine is Rust. The self-hosted engine
-will be written in aski but still compiles to Rust — Rust is
-the compilation target, not the implementation language.
+Aski compiles to Rust via sema. The bootstrap engine is Rust. The
+self-hosted engine will be written in aski but still compiles to
+Rust — Rust is the compilation target, not the implementation
+language.
+
+(Previous drafts of this section asserted "No higher-kinded types.
+No dependent types (yet)." Those claims were Claude-authored and
+never confirmed; they are now open questions — see gap-analysis.md
+§U20 and §U21.)
 
 
 ## Instances Are Owned
@@ -425,49 +429,6 @@ Ad-hoc pair/triple grouping. Aski forces naming for every group.
 This is a deliberate cost that buys clarity at every use site.
 
 
-## No Native Infinite-Loop Form
-
-Aski's loop delimiter `[| <Expr> <Body> |]` requires a
-condition. For infinite loops, write `while true`:
-
-```aski
-[| true
-  [handleEvent]
-  [updateState]
-|]
-```
-
-### Why no distinct `loop {}` form
-
-All six delimiter pairs are allocated (`()`, `[]`, `{}`,
-`(||)`, `[||]`, `{||}`). Adding a dedicated infinite-loop form
-would require either:
-
-- Stealing a delimiter from another construct (costs grammar clarity)
-- A distinguishing marker inside `[||]` (sigil noise)
-- A contextual rule like "first-token-is-statement → infinite" (works but adds parser state)
-
-The cost-benefit doesn't justify it: infinite loops are a
-genuine pattern (event loops, servers, retry-until-success)
-but not frequent enough in aski's domain-modeling focus to
-earn their own syntactic weight.
-
-### Common infinite-loop uses
-
-- **Event/server loops** — `[| true [event self.receive] [self.handle(event)] |]`
-- **Retry until success** — `[| true (attempt self.tryConnect) (| attempt …arm for Ok, arm for Err |) |]`
-- **Polling watchers** — `[| true [change self.waitForChange] [self.process(change)] |]`
-- **State machine drivers** — exit via `^` early return when terminal state reached.
-
-### Fallback for agents / contributors
-
-If an agent reads this and is tempted to "fix" the missing
-infinite-loop form: don't. `while true` is the intended pattern.
-The cost is one extra token at declaration; the gain is zero
-grammar expansion. This is a deliberate language decision, not
-a gap to fill.
-
-
 ## Defined Inputs and Outputs
 
 Every pipeline component has defined inputs and defined
@@ -573,8 +534,10 @@ the universal framing term, not "Sema" or "Sajban."
 5. **Delimiter-first.** Type application is `{Constructor Arg}`
    (v0.19; was `[…]`). `<>` is not an aski delimiter.
 
-6. **We compile to Rust.** No higher-kinded types. Kinds are implicit
-   (count $ slots in a definition).
+6. **We compile to Rust.** Kinds are implicit (count $ slots in a
+   definition). Whether aski allows higher-kinded types at the aski
+   layer (desugared on the way to Rust) is open — see
+   gap-analysis.md §U20.
 
 7. **Everything synth-driven.** Types have their own dialect (Type.synth).
 
