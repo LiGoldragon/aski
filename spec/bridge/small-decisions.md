@@ -14,7 +14,10 @@ choice remains. One nod per item unblocks the landing.
 
 ---
 
-## S3. break / continue / labeled loops — sigil spelling
+## S3. break / continue / labeled loops — sigil spelling — STILL OPEN (v0.21)
+
+;; STILL OPEN in v0.21 — U13 covers the sigil-family pick-and-merge;
+;; see outliers-v021.md §U12 neighborhood and syntax-v021/09-control-flow.md.
 
 Proposed direction: extend the `^` family. The only existing spec
 item is `#EarlyReturn#^<Expr>` in Statement.synth — the "exit family"
@@ -94,7 +97,10 @@ Candidate readings (all proposed, none selected):
 
 ---
 
-## S6. dyn Trait — the `?` prefix at type position
+## S6. dyn Trait — the `?` prefix at type position — STILL OPEN (v0.21)
+
+;; STILL OPEN in v0.21 — U14 covers the syntactic sigil pick-and-merge;
+;; semantic question is outliers-v021.md §S6 (blocks the sigil landing).
 
 Syntactic shape proposed; semantic design is open (see `big-decisions.md §S6`
 for the dyn-dispatch semantic question — vtables or discriminants in sema).
@@ -143,7 +149,12 @@ syntax alone doesn't unblock writing dyn-using programs.
 
 ---
 
-## N5. Enum variant discriminants — one-token lookahead
+## N5. Enum variant discriminants — one-token lookahead — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/01-enums.md
+;; DiscriminantVariant form accepts one-token lookahead at enum body.
+;; Final shape (bare `Ok = 200` vs bracket `[Ok 200]`) pick-and-merge
+;; — see outliers-v021.md.
 
 Proposed: add a `DiscriminantVariant` form for `Variant = Literal`.
 Uses `=` (currently only bound inside `==`/`!=`/`<=`/`>=`) as a bare

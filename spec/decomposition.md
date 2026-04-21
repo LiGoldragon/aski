@@ -1,19 +1,20 @@
 ; Aski Decomposition — The Filesystem Is the Identifier Graph
 
-*2026-04-21 · Analysis. Not yet signed off. The principle in one
-sentence, then everything that falls out of it.*
-
-[multi-surface/ index](../multi-surface.md)
+*2026-04-21 · Foundational II-L (Identity-is-Location) research. This
+document is the reasoning that led to v0.21 — see
+[syntax-v021.md](syntax-v021.md) for the canonical current spec.*
 
 ---
 
 # 0. Preface — why this document exists
 
-The multi-surface proposal (00-vision through 10-transition) lists
-eight surface decisions, each defended on its own merits: paradigm
+An earlier multi-surface proposal (per-concern surfaces —
+`.types` / `.traits` / `.impls` / `.effects` / `.derivations` /
+`.test-impls` / platform-impl surfaces) listed eight surface
+decisions, each defended on its own merits: paradigm
 enforcement, coherence relaxation, effect tracking, named impls,
 derivations, platform swapping, and so on. A later round of discussion
-extended the proposal in directions the surface docs only hint at:
+extended the proposal in directions the surface docs only hinted at:
 one public object per file, the filename IS the object's name, a
 per-kind extension tells you WHAT KIND the object is, the outer
 source-level delimiter disappears because the file itself IS the

@@ -64,42 +64,69 @@ works because the space is next to delimiters, not between
 items themselves.
 
 
-## Surfaces (v0.20)
+## Surfaces (v0.21)
 
-Synth is organized into five **surfaces**, each a dialect
-family with its own root rule and rkyv artifact. Each
-surface's `.synth` files live in their own subdirectory.
+Synth is organized into **surfaces**, each a dialect family with
+its own root rule and rkyv artifact. Each surface's `.synth` files
+live in their own subdirectory. v0.21 expanded the surface set
+from v0.20's five to one-per-kind — see
+[decomposition.md](decomposition.md) for the II-L principle.
 
 | Surface | Purpose | Consumer | Extension |
 |---------|---------|----------|-----------|
 | core | Pure type definitions | corec | .core |
-| aski | Modules and libraries | askic | .aski |
 | synth | Grammar self-description | tooling | .synth |
+| enum | One enum body | askic | .enum |
+| struct | One struct body | askic | .struct |
+| newtype | One newtype body | askic | .newtype |
+| const | One const body | askic | .const |
+| trait | One trait body | askic | .trait |
+| impl | One trait-impl body | askic | .impl |
+| effect | One effect body | askic | .effect |
+| derivation | One derivation rule body | askic | .derivation |
+| test-impl | One test impl body | askic | .test-impl |
+| bench-impl | One bench impl body | askic | .bench-impl |
 | exec | Executable programs | askic | .exec |
 | rfi | Rust foreign interface declarations | askic | .rfi |
 
+Pre-0.21 had five surfaces (`.core` / `.aski` / `.synth` /
+`.exec` / `.rfi`) with the single `.aski` surface hosting many
+kinds per file. Under v0.21 (II-L): filename = object name;
+extension = kind; `_` prefix = private; directory = module.
+Each per-kind extension is a surface that parses just the body
+of that kind.
+
 ```
 askicc/source/
-  core/    — Root, Enum, Struct (no module header)
-  aski/    — full grammar (module, enums, traits, trait impls, etc.)
-  synth/   — synth describing synth (self-description)
-  exec/    — Root + Module only (refs aski via <:aski:...>)
-  rfi/     — Root only (refs aski for Signature)
+  core/        — Root, Enum, Struct (types-contract surface)
+  synth/       — synth describing synth (self-description)
+  enum/        — Enum body grammar (variants, nested)
+  struct/      — Struct body grammar (fields, nested)
+  newtype/     — Newtype body grammar (wrapped type)
+  const/       — Const body grammar (type + expr)
+  trait/       — Trait body grammar (items, defaults, assoc consts)
+  impl/        — Impl body grammar (items)
+  effect/      — Effect body grammar
+  derivation/  — Derivation rule body grammar
+  test-impl/   — Test-impl body grammar
+  bench-impl/  — Bench-impl body grammar
+  exec/        — Exec body grammar (refs others via <:…:…>)
+  rfi/         — Rfi body grammar
 ```
 
-askicc produces ONE combined rkyv containing every dialect
-from every DSL: `generated/dsls.rkyv`. Each Dialect inside
-carries its SurfaceKind. askic dispatches on file extension
-to pick which surface's Root to enter, then looks up
-(SurfaceKind, DialectKind) in one flat table for every
-dialect ref (same-surface or cross-surface).
+askicc still produces ONE combined rkyv containing every dialect
+from every surface: `generated/dsls.rkyv`. Each Dialect inside
+carries its SurfaceKind. askic dispatches on file extension to
+pick which surface's Root body grammar to enter, then looks up
+(SurfaceKind, DialectKind) in one flat table for every dialect
+ref (same-surface or cross-surface).
 
 Terminology:
-- **DSL** — one of the five surfaces (core, aski, synth, exec, rfi).
-  Each is a complete grammar for one file type.
-- **Dialect** — one `.synth` file within a DSL (Body, Statement,
-  Expr, …). Its filename becomes a DialectKind variant.
-- **dsls.rkyv** — the one rkyv bundling all five DSLs'
+- **DSL / surface** — one per-kind grammar (see table above). Each
+  is a complete grammar for one file type's body.
+- **Dialect** — one `.synth` file within a surface (Body,
+  Statement, Expr, …). Its filename becomes a DialectKind variant.
+- **dsls.rkyv** — the one rkyv bundling every surface's
   dialects, surface-tagged for dispatch.
 
 

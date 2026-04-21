@@ -4,6 +4,15 @@ These are settled design decisions. They are not open for
 reconsideration. New syntax, new dialects, and new engine work
 must conform to all of them.
 
+The v0.21 (Identity-is-Location) layout moved outer-level
+concerns (module header, visibility sigil on root declarations,
+outer object delimiters) out of source and onto the filesystem.
+The body grammar (local decls, match, loop, iteration,
+references, borrows, origins, views, generic slot, bound sets,
+path syntax, case rule) is unchanged from v0.20. See
+[decomposition.md](decomposition.md) for the II-L derivation and
+[syntax-v021.md](syntax-v021.md) for the canonical current spec.
+
 
 ## Sema Is the Thing
 
@@ -45,49 +54,85 @@ shapes that composed data takes. Newtypes are transparent
 wrappers — the pipes connote "one thing wrapped."
 
 
-## Surfaces (v0.20)
+## Surfaces (v0.21 — Identity-is-Location)
 
-Aski has five surfaces, each a grammar family for a specific
-file kind:
+Aski under v0.21 has per-kind file extensions. Filename = object
+name. Extension = kind. One public object per file. Directory =
+module. An `_` prefix on a filename (or directory name) marks it
+private. Each directory carries an `imports` file that lists the
+names visible in that module. See
+[decomposition.md](decomposition.md) for the II-L principle that
+drives this layout, and [syntax-v021.md](syntax-v021.md) for the
+canonical spec.
 
-- **core** (`.core`) — pure type definitions. What corec eats.
-- **aski** (`.aski`) — modules, libraries. What askic parses.
-- **synth** (`.synth`) — grammar definitions. What askicc parses.
-- **exec** (`.exec`) — executable programs. What askic runs.
-- **rfi** (`.rfi`) — Rust foreign interface declarations (v0.20).
+Per-kind extensions (v0.21):
 
-Each surface has its own `Root.synth` and its own dialect
-tree. Surfaces don't share `.synth` files directly — they
-reference across surfaces via `<:surface:Name>` syntax. This
-keeps surfaces independent while avoiding duplication.
+- `.enum` — one enum per file. Filename = enum name.
+- `.struct` — one struct per file.
+- `.newtype` — one newtype per file.
+- `.const` — one const per file.
+- `.trait` — one trait declaration per file.
+- `.impl` — one trait impl per file. Filename encodes `Trait[Args]~Target`.
+- `.effect` — one effect per file (optional platform tag before the
+  extension: `Name<platform>.effect`).
+- `.derivation` — one derivation rule per file.
+- `.test-impl` — one test impl per file.
+- `.bench-impl` — one bench impl per file.
+- `.exec` — one executable per file (entry-point surface).
+- `.rfi` — one Rust foreign-interface declaration per file.
+- `.core` — type definitions consumed by corec. Unchanged from v0.20.
+- `.synth` — grammar dialect files consumed by askicc. Unchanged
+  from v0.20.
 
-The exec surface is minimal (just Root and Module) —
-everything else is referenced from aski. Core similarly
-references aski for Type expressions.
+Each per-kind extension is its own **surface** — a grammar for
+just the body of that kind. The outer identity (name, kind,
+visibility, module) is drawn from the filesystem walk; the
+per-surface grammar handles the body only. Surfaces reference
+across each other via `<:surface:Name>` syntax the same way they
+did in v0.20.
+
+Pre-0.21 had five surfaces (`.core` / `.aski` / `.synth` / `.exec`
+/ `.rfi`) where the single `.aski` surface hosted many kinds of
+declarations per file (types, traits, impls all together). v0.21
+splits that single surface into per-kind extensions.
+
+A short-lived intermediate proposal (per-concern surfaces like
+`.types` / `.traits` / `.impls`) still kept many objects per file
+and source-level module headers; it was superseded by v0.21 before
+landing. See [decomposition.md](decomposition.md) for the full
+derivation.
 
 
-## Every Construct Is Delimited (v0.19)
+## Every Construct Is Delimited (v0.19 — body-internal under v0.21)
 
 No bare multi-item sequences. Every construct at every level
 has explicit delimiters so the engine always knows what it's
 reading before entering.
 
-Aski root delimiter allocation (v0.20):
+In v0.21 the **outer** delimiter on root constructs moves to the
+filesystem — the per-kind extension IS the outer delimiter
+(`.enum`, `.struct`, `.newtype`, `.const`, `.trait`, `.impl`, …)
+and the filename IS the object name. Inside each file, bodies
+continue to use the delimiter-driven grammar below. The v0.20
+pre-II-L outer allocation is retained here as history, since the
+same delimiter repertoire still appears in the bodies:
 
-| Delimiter | Construct |
-|-----------|-----------|
-| `()` | Module (first), Enum |
-| `[]` | TraitImpl |
-| `{}` | Struct |
-| `{||}` | Const |
-| `(||)` | Newtype |
-| `[||]` | **TraitDecl** (v0.20; was FFI) |
+| Delimiter | Construct (v0.20 outer, now body-internal) |
+|-----------|----------|
+| `()` | Module header (v0.20; gone in v0.21 — directory = module), Enum, local decl, typed field, match arm, call args |
+| `[]` | TraitImpl (v0.20 outer), block, InlineEval, ExprStmt, or-pattern |
+| `{}` | Struct, type application, generic slot, bound set |
+| `{||}` | Const (v0.20 outer), Iteration, View type |
+| `(||)` | Newtype (v0.20 outer), Match body |
+| `[||]` | TraitDecl (v0.20 outer; was FFI), Loop |
 
 Every root construct has a unique opening token — first-token
-decidable. RFI moved to its own `.rfi` surface; see §Surfaces.
+decidable. RFI moved to its own `.rfi` surface in v0.20; all
+other kinds moved to their own per-kind extensions in v0.21.
 Process moved to the exec surface. No bare newtypes. No
-fallback rules. The delimiter identifies the construct; the
-`@LabelKind` after it reads the name.
+fallback rules. The delimiter identifies the construct inside
+the body; the filename + extension identifies it at the outer
+level.
 
 
 ## Everything Is a Type
@@ -358,48 +403,54 @@ backtracking to parse, the escape valve is **creating a new DSL
 (surface)** for that domain — not adding parser logic.
 
 Examples of the DSL-creation pattern:
-- **exec** (`.exec`) — executable programs, separate from module-
-  oriented `.aski`. Process-level constructs don't complicate
-  the aski grammar.
+- **exec** (`.exec`) — executable programs, separate from
+  module-oriented source. Process-level constructs don't
+  complicate the body grammar.
 - **rfi** (`.rfi`, v0.20) — Rust foreign interface declarations.
-  Moved to their own surface when `[||]` was
-  reclaimed for TraitDecl; gives FFI room to grow with
-  target-language specifiers and calling conventions.
+  Moved to their own surface when `[||]` was reclaimed for
+  TraitDecl; gives FFI room to grow with target-language
+  specifiers and calling conventions.
+- **per-kind surfaces** (`.enum`, `.struct`, `.trait`, `.impl`,
+  `.const`, `.newtype`, `.effect`, `.derivation`, `.test-impl`,
+  `.bench-impl`; v0.21) — each kind of root declaration gets its
+  own surface, so every body is parsed against exactly one
+  root-kind-specific grammar. The outer delimiter is the
+  extension; the body stays locally decidable.
 
 Every dialect's parser stays locally decidable. Every grammar
 rule has a unique opening token within its dialect.
 
 
-## Visibility (v0.20)
+## Visibility (v0.21 — filesystem-encoded)
 
-The `@` sigil prefix marks public. Default is private. Applies
-uniformly at every declaration point and field slot:
+Under II-L, visibility lives in the filesystem:
 
-```aski
-@(Element Fire Earth Air Water)              ;; public enum
-(InternalEnum Ready Done)                     ;; private enum
+- **File-level:** a leading `_` on a filename marks the object
+  private. `Element.enum` is public; `_Element.enum` is private.
+- **Directory-level:** a leading `_` on a directory name marks the
+  submodule private.
+- **Field-level (body-internal):** inside a struct body the `@`
+  sigil still marks a public field; bare Pascal fields are
+  body-private. Self-typed fields: `@FieldName` public;
+  `FieldName` body-private.
+- **Newtype wrapped type:** `@Type` inside a `.newtype` body =
+  wrapped public; bare type = wrapped private (opaque).
 
-@{Point (@Horizontal F64) (@Vertical F64)}    ;; public struct, public fields
-@{Counter (@Count U32) (Cache U32)}            ;; Count public, Cache private
-{SecretData (Key String)}                      ;; private struct
+The v0.20 root-level `@` sigil (public prefix on Enum / Struct /
+Newtype / Const / TraitDecl / TraitImpl declarations) is RETIRED.
+File-level visibility replaces it. The `@` sigil survives inside
+struct and newtype bodies for field-level and wrapped-type
+visibility.
 
-@(| Counter @U32 |)                            ;; public newtype, wrapped public (transparent)
-@(| OpaqueCount U32 |)                          ;; public newtype, wrapped private (opaque)
-```
+The v0.19 module-exports list was already retired in v0.20; the
+v0.20 source-level module header is RETIRED in v0.21 (directory =
+module; each directory carries an `imports` file listing the names
+visible in that module).
 
-Module exports list (v0.19) retired — visibility is declaration-
-local. veric resolves "is name X visible from outside?" by
-looking at the declaration's `@` prefix.
-
-Rules:
-- **Declarations:** Enum, Struct, Newtype, Const, TraitDecl, TraitImpl
-  each take optional `@` prefix for public.
-- **Struct fields:** `(@FieldName Type)` public; `(FieldName Type)` private.
-- **Self-typed fields:** `@FieldName` public; `FieldName` private.
-- **Newtype wrapped type:** `@Type` inside `(| Name @Type |)` = wrapped public;
-  bare type = wrapped private (opaque).
-- **Module:** module itself is always "visible" within its file; the
-  `.aski` file IS the module. No `@` on the Module line.
+Rust's finer-grained visibility (`pub(crate)`, `pub(super)`,
+`pub(in path)`) has no encoding yet — see
+[outliers-v021.md §U10 / N4](outliers-v021.md) for the open
+question.
 
 
 ## No Tuples

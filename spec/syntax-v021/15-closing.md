@@ -227,14 +227,10 @@ identity (name, kind, visibility, module) is drawn from the
 filesystem walk; per-surface grammar handles the body.
 
 For architectural detail on the surfaces, see:
-  multi-surface/00-vision.md        — the pitch
-  multi-surface/01-surfaces.md      — the inventory
-  multi-surface/02-types.md         — .enum / .struct / .newtype / .const bodies
-  multi-surface/03-traits.md        — .trait bodies
-  multi-surface/04-impls.md         — .impl bodies, named impls, coherence
-  multi-surface/05-effects-and-platforms.md — .effect bodies, capability
-  multi-surface/06-derivations-and-testing.md — .derivation, .test-impl
-  multi-surface/decomposition.md    — II-L principle derivation
+  decomposition.md    — II-L principle derivation (the foundational
+                        research that led to v0.21; supersedes the
+                        earlier per-concern multi-surface proposal
+                        that was retired on 2026-04-21)
 
 For open questions, see `gap-analysis.md`.
 For settled decisions, see `design.md`.

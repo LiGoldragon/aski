@@ -14,7 +14,12 @@ just different spelling. Pick one; implement; write it into design.md.
 
 ---
 
-## C2 + S10 + N10 — Destructuring binding rule
+## C2 + S10 + N10 — Destructuring binding rule — STILL OPEN (v0.21)
+
+;; STILL OPEN in v0.21 — covered by U11 pick-and-merge; Option A
+;; recommended. See outliers-v021.md and syntax-v021/12-expressions.md.
+;; N10 (iteration-binding shape) LANDED in v0.21 for the non-destructuring
+;; case; destructuring-in-iteration still depends on this resolution.
 
 **The question:** when a match arm destructures a variant's payload or
 a struct's fields, what determines the binding name?
@@ -150,7 +155,10 @@ the field role"?
 
 ---
 
-## S6 — Dynamic dispatch semantics
+## S6 — Dynamic dispatch semantics — STILL OPEN (v0.21)
+
+;; STILL OPEN in v0.21 — outlier, see outliers-v021.md §S6. Blocks the
+;; U14 syntactic sigil decision in small-decisions.md.
 
 **The syntactic** question (`?{Trait}` as the sigil) is in
 `small-decisions.md`. **The semantic** question is much harder:
@@ -241,7 +249,12 @@ won't have a consistent semantic path.
 
 ---
 
-## S4 — Closure philosophy
+## S4 — Closure philosophy — Position A LANDED in v0.21; B/C OPEN
+
+;; Position A LANDED in v0.21 2026-04-21 (named-type Callable impls,
+;; zero grammar change) — see ../syntax-v021/12-expressions.md.
+;; Positions B (inline closure sugar) and C (explicit-capture shorthand)
+;; remain open — outliers-v021.md §U12.
 
 **The question:** does aski get any syntactic sugar for anonymous
 callables, or is "named type impl of Callable" the permanent answer?

@@ -62,7 +62,9 @@ Also in `synth-core` (`TagKind::WildcardPattern`, `LiteralToken::Underscore`),
 below is settled. "Open question" markers inside each item flag the
 specific calls that were previously baked in as prose.*
 
-### C5. Division `/` — ACCEPTED 2026-04-20
+### C5. Division `/` — ACCEPTED 2026-04-20 · LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/12-expressions.md
 
 ```rust
 let mean = total / count;
@@ -87,7 +89,9 @@ Adds `TagKind::BinDiv`, `Expr::BinDiv { Left, Right }`. Lexer already emits
 
 ---
 
-### C6. Unary operators `-` / `!` — ACCEPTED 2026-04-20; deref `*` ACCEPTED 2026-04-21
+### C6. Unary operators `-` / `!` — ACCEPTED 2026-04-20; deref `*` ACCEPTED 2026-04-21 · LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/12-expressions.md
 
 ```rust
 let neg = -x;
@@ -124,7 +128,9 @@ ExprUnary gains `#UnaryDeref#_*_ <ExprUnary>`.
 
 ---
 
-### C7. Borrow of path expression
+### C7. Borrow of path expression — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/08-body-basics.md
 
 ```rust
 fn describe(&self) -> String {
@@ -166,7 +172,12 @@ Rust's rule; to be confirmed before landing.
 
 ---
 
-### C3. LiteralPattern
+### C3. LiteralPattern — PICK-AND-MERGE (v0.21)
+
+;; v0.21 2026-04-21 — scope confirmed for Int/Float/Str; Bool/Char
+;; excluded. Bool literal-pattern still tied to U3 (outliers); Char
+;; literal pattern retired in favor of `Char:Upper:A` path syntax.
+;; See ../syntax-v021/12-expressions.md + outliers-v021.md §U3.
 
 Folds `StringMatch` into a single LiteralPattern covering Int, Float,
 String, Char — at minimum.
@@ -215,7 +226,11 @@ fn status_name(code: u32) -> &'static str {
 
 ---
 
-### C4. if / if-let / while-let
+### C4. if / if-let / while-let — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/09-control-flow.md
+;; Merged as the documented match-on-Bool idiom; Bool-as-primitive
+;; vs Bool-as-variant-enum tension still open — outliers §U3.
 
 **Open question — Bool representation:** an earlier draft retracted the
 `true` / `false` literal-token carve-out on the grounds that lowercase
@@ -256,7 +271,9 @@ other answer, this section is revisited.
 
 ---
 
-### N2. Never primitive
+### N2. Never primitive — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/11-stdlib-primitives.md
 
 ```rust
 fn panic(msg: &str) -> ! { … }
@@ -307,7 +324,11 @@ Const, TraitDecl, Method. rsc emits `/// …` in Rust projection.
 
 ---
 
-### N8. Literal lexer extensions (narrowed — no Bool literal)
+### N8. Literal lexer extensions (narrowed — no Bool literal) — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/08-body-basics.md
+;; Hex/oct/bin, numeric separators, typed int suffix, raw-triple-quote,
+;; string escapes merged. Bool literal still open — outliers §U3.
 
 **Retraction:** the original proposal included `true`/`false` as Bool
 literals. Dropped per C4's retraction. All other items stand.
@@ -345,7 +366,9 @@ small decision — see `small-decisions.md`.
 
 ---
 
-### S2. Range expressions
+### S2. Range expressions — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/09-control-flow.md + 12-expressions.md
 
 ```rust
 for i in 0..10 { println!("{}", i); }
@@ -373,7 +396,9 @@ Lexer adds `..` and `..=` as multi-char operators. Aski-core adds
 
 ---
 
-### S8. Const expressions
+### S8. Const expressions — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/03-newtypes-consts.md
 
 ```rust
 const MAX_USERS: u32 = 100;
@@ -396,7 +421,9 @@ Aski-core: `Const.Value: Expr` (was `LiteralValue`). Veric does const-eval.
 
 ---
 
-### S9. Associated constants
+### S9. Associated constants — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/04-traits.md
 
 ```rust
 trait BoundedQueue {
@@ -446,7 +473,11 @@ default Expr and `AssociatedConstBinding` for impl side.
 
 ---
 
-### S11. Arrays (depends on S8)
+### S11. Arrays (depends on S8) — LANDED in v0.21 2026-04-21 (integer-const scope confirmed)
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/02-structs.md and 14-scorecard.md
+;; Integer-const scope confirmed; array-literal expression form still
+;; open — outliers §U4. Slice types `[T]` still open — outliers §U5.
 
 ```rust
 let buffer: [u32; 16] = Array::init(16, 0);
@@ -483,7 +514,9 @@ accepted with a distinct primitive.
 
 ---
 
-### S5. Bitwise operators via stdlib
+### S5. Bitwise operators via stdlib — LANDED in v0.21 2026-04-21
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/12-expressions.md
 
 ```rust
 let flags = READ | WRITE;
@@ -517,7 +550,11 @@ would break borrow and logical-or.
 
 ---
 
-### S7. Cast via stdlib From/Into
+### S7. Cast via stdlib From/Into — LANDED in v0.21 2026-04-21 (Position A on narrowing)
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/10-self-mutation-cast-path.md
+;; Narrowing-conversion shape (lossy method names vs TryFrom-only vs
+;; both) still open — outliers §U6.
 
 ```rust
 let u = byte as u32;
@@ -544,7 +581,10 @@ Which framing?
 
 ---
 
-### N3. Assignment / compound assignment via stdlib
+### N3. Assignment / compound assignment via stdlib — LANDED in v0.21 2026-04-21 (method-only direction)
+
+;; LANDED in v0.21 2026-04-21 — see ../syntax-v021/10-self-mutation-cast-path.md
+;; Bare `=` / `+=` operators still open — outliers §U7.
 
 ```rust
 fn tick(&mut self) {
@@ -585,13 +625,14 @@ always."
 
 ---
 
-### S4. Closures — Position A (named-type impls) shown here
+### S4. Closures — Position A (named-type impls) — LANDED in v0.21 2026-04-21; B/C open
 
-**Status: not a clear resolution.** See
-[bridge/big-decisions.md §S4](big-decisions.md) — A vs B vs C still open.
-This section shows **Position A** (named-type-always); if that wins,
-no grammar change. If B or C wins (sugar for inline closures), grammar
-changes are nontrivial.
+;; Position A LANDED in v0.21 2026-04-21 — see ../syntax-v021/12-expressions.md
+;; Positions B (inline closure sugar) and C (explicit-capture shorthand)
+;; remain open — outliers §U12.
+
+**Status: Position A merged as the zero-grammar-change baseline. A vs
+B vs C inline-sugar question stays open in outliers-v021.md §U12.**
 
 ```rust
 let items: Vec<u32> = nums.iter().map(|x| x + 1).collect();

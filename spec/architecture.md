@@ -44,28 +44,39 @@ projections from `.sema`). Everything else is rkyv-typed-data in,
 rkyv-typed-data out.
 
 
-## Five Surfaces (v0.20)
+## Surfaces (v0.21 — per-kind extensions)
 
-aski has five DSLs, one per file type:
+aski has one surface per kind of root object. Each extension is
+an entry point the dispatcher uses; each surface is a body
+grammar for that kind. See
+[decomposition.md](decomposition.md) for the II-L derivation
+and [syntax-v021.md](syntax-v021.md) for the canonical spec.
 
 - `.core` — pure type definitions (for corec)
-- `.aski` — modules and libraries (for askic)
 - `.synth` — grammar self-description (for tooling)
+- `.enum` / `.struct` / `.newtype` / `.const` / `.trait` /
+  `.impl` / `.effect` / `.derivation` / `.test-impl` /
+  `.bench-impl` — one body per file (for askic)
 - `.exec` — executable programs (for askic)
-- `.rfi` — Rust foreign interface declarations (v0.20, for askic)
+- `.rfi` — Rust foreign interface declarations (for askic)
 
-Each DSL is a set of **dialects** — one .synth file per
+Pre-0.21 the single `.aski` surface hosted many kinds per file
+(enums, structs, traits, impls, consts, newtypes, RFI all in one
+file with a module header). v0.21 moves each kind to its own
+extension; filename = object name; `_` prefix = private;
+directory = module; an `imports` file per directory lists the
+visible names.
+
+Each surface is a set of **dialects** — one .synth file per
 dialect (Body.synth, Statement.synth, Expr.synth, …). askicc
 reads source/<surface>/*.synth and produces ONE combined
 rkyv at `generated/dsls.rkyv` containing every dialect from
-every DSL. Each Dialect entry carries its SurfaceKind.
+every surface. Each Dialect entry carries its SurfaceKind.
 
-askic dispatches on file extension to pick the entry surface
-(`.core` → Core, `.aski` → Aski, `.synth` → Synth, `.exec`
-→ Exec, `.rfi` → Rfi), then walks dialects looked up by
-(SurfaceKind, DialectKind). Cross-surface refs
-(`<:surface:Name>` — e.g., exec's `<:aski:Statement>`)
-resolve via the same flat table.
+askic dispatches on file extension to pick the entry surface,
+then walks dialects looked up by (SurfaceKind, DialectKind).
+Cross-surface refs (`<:surface:Name>` — e.g., exec's
+`<:aski:Statement>`) resolve via the same flat table.
 
 The synth language in v0.18 has three orthogonal concepts:
 
@@ -175,13 +186,15 @@ to generate their contract types.
 
 ## askicc — The Synth Compiler
 
-Reads `source/<surface>/*.synth` files (one dialect per file, four
-surfaces: core, aski, synth, exec). Populates synth-core domain
-types — the parsed grammar becomes a typed data tree. Serializes
-as a single `dsls.rkyv` containing every dialect from every DSL
-(each Dialect tagged with its `SurfaceKind`). The rkyv output is
-embedded in askic at build time via `include_bytes!`, giving askic
-the state-machine data for that version of aski's grammar.
+Reads `source/<surface>/*.synth` files (one dialect per file, one
+surface per kind under v0.21: core, synth, enum, struct, newtype,
+const, trait, impl, effect, derivation, test-impl, bench-impl,
+exec, rfi). Populates synth-core domain types — the parsed grammar
+becomes a typed data tree. Serializes as a single `dsls.rkyv`
+containing every dialect from every surface (each Dialect tagged
+with its `SurfaceKind`). The rkyv output is embedded in askic at
+build time via `include_bytes!`, giving askic the state-machine
+data for that version of aski's grammar.
 
 askicc does NOT generate Rust. Only corec and semac-via-rsc
 generate Rust. askicc produces rkyv data (a domain-data-tree of
@@ -523,10 +536,10 @@ Source of truth (currently incomplete — see aski-core CLAUDE.md):
 
 ### Stage 2: askicc's Output — rkyv Domain-Data-Tree
 
-askicc reads .synth dialect files from each DSL's subdirectory,
+askicc reads .synth dialect files from each surface's subdirectory,
 populates a domain-data-tree using synth-core's corec-generated
-types, and serializes it as a single `dsls.rkyv` containing all
-five DSLs. This rkyv data gets embedded in the askic binary at
+types, and serializes it as a single `dsls.rkyv` containing every
+v0.21 surface. This rkyv data gets embedded in the askic binary at
 build time, giving askic the ability to read that version of
 aski's grammar. askic deserializes using the same corec-generated
 types. The tree itself is pure domain composition — every node
@@ -664,8 +677,8 @@ impls). `main` is the only exception.
 corec        .core → Rust with rkyv derives (bootstrap tool)
 synth-core   grammar .core + corec → rkyv types (askicc↔askic)
 aski-core    parse tree .core + corec → rkyv types (askic↔veric↔semac)
-askicc       source/<surface>/*.synth → rkyv dsls.rkyv (all 5 DSLs)
-askic        .core/.aski/.synth/.exec → per-module .rkyv (surface-dispatched)
+askicc       source/<surface>/*.synth → rkyv dsls.rkyv (all v0.21 surfaces)
+askic        per-kind source (.core/.synth/.enum/.struct/.newtype/.const/.trait/.impl/.effect/.derivation/.test-impl/.bench-impl/.exec/.rfi) → per-file .rkyv (surface-dispatched)
 veric        per-module .rkyv → program.rkyv (verified, linked)
 domainc      program.rkyv → domain types (proc macro)
 semac        program.rkyv + domain types → .sema (pure binary)

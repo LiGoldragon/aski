@@ -1,8 +1,18 @@
 # Aski v0.20 vs Rust — Gap Analysis
 
-*2026-04-19 · Sources: [syntax-v020.aski](syntax-v020.aski),
+*2026-04-19 · v0.21 landings annotated 2026-04-21. Sources:
+[syntax-v020.aski](syntax-v020.aski), [syntax-v021.md](syntax-v021.md),
 [design.md](design.md), ../core/\*.core, ../../askicc/source/\*\*/\*.synth.
 Cross-checked against Mentci/RESTART-CONTEXT.md §13.*
+
+> **⚠️ LANDED in v0.21 (2026-04-21).** Many items listed below
+> merged into the v0.21 syntax spec. See [syntax-v021.md](syntax-v021.md)
+> for current behavior. **Marked LANDED** in this file: C4, C5, C6,
+> C7, S2, S5, S7, S8, S9, S11, N1, N2, N3, N5, N8, N10, U1, U16.
+> Still open: U3, U4, U5, U6, U7, U10, U11, U12, U13, U14, U15,
+> U17, U19, U20, U21, N4, S4-B/C, S6, C3 (scope tension), C8 (still
+> proposed). See [outliers-v021.md](outliers-v021.md) for the
+> hard-block open items.
 
 # Scope
 
@@ -40,33 +50,50 @@ inexpressible.
 form. You can work around by defining an enum per value, but arbitrary
 integers can't.
 
-## C4. No `if` / `if let` / `while let`
-Only `match` and `while <cond>` exist. `if cond { a } else { b }` is
+## C4. No `if` / `if let` / `while let` — LANDED in v0.21 2026-04-21
+See [syntax-v021/09-control-flow.md](syntax-v021/09-control-flow.md).
+Under v0.21 the `match`-on-Bool-variants idiom is documented explicitly;
+`if let` uses match with `_` wildcard. Bool-as-primitive vs
+Bool-as-variant-enum tension remains open (outliers §U3).
+
+~~Only `match` and `while <cond>` exist. `if cond { a } else { b }` is
 expressible only as `(| cond (True) a (False) b |)`, which requires
 `Bool` to be a two-variant enum in scope AND exhaustive matching. This
 is workable but friction-ful and relies on C3 being solved (for matching
-on `bool`). `if let` and `while let` have no equivalent.
+on `bool`). `if let` and `while let` have no equivalent.~~
 
-## C5. No division `/` operator
-RESTART-CONTEXT notes `/` was "freed for future division" in v0.19 but
+## C5. No division `/` operator — LANDED in v0.21 2026-04-21
+See [syntax-v021/12-expressions.md](syntax-v021/12-expressions.md).
+ACCEPTED 2026-04-20; merged into v0.21.
+
+~~RESTART-CONTEXT notes `/` was "freed for future division" in v0.19 but
 `ExprMul.synth` has only `*` and `%`. The lexer resolves `/` to
 `LiteralToken::Slash`; no grammar consumes it. Ship-blocker for any
-arithmetic code.
+arithmetic code.~~
 
-## C6. No unary operators
-No negation `-x`, no logical NOT `!x`, no deref `*x`. `ExprAtom.synth`
+## C6. No unary operators — LANDED in v0.21 2026-04-21
+See [syntax-v021/12-expressions.md](syntax-v021/12-expressions.md).
+Unary `-` and `!` ACCEPTED 2026-04-20; deref `*` ACCEPTED 2026-04-21
+(U1); all three merged into v0.21.
+
+~~No negation `-x`, no logical NOT `!x`, no deref `*x`. `ExprAtom.synth`
 has no opener for a leading operator; `ExprMul`/`ExprAdd` start from
 `<ExprPostfix>`. Writing `-1` is currently impossible at expression
 position — `LiteralExpr` emits a literal token but there is no grammar
 path from a binary minus to "unary -". Logical NOT is especially glaring
-because `&&` / `||` / `==` / `!=` all exist.
+because `&&` / `||` / `==` / `!=` all exist.~~
 
-## C7. Borrow expressions only work on bare instances
-`ExprAtom.synth`: `_&_?<Origin>?<ViewType>:instance` — the target of `&`
+## C7. Borrow expressions only work on bare instances — LANDED in v0.21 2026-04-21
+See [syntax-v021/08-body-basics.md](syntax-v021/08-body-basics.md).
+Borrow now accepts path expressions: `&self.Field`, `&foo.Bar.Baz`,
+`~&self.Buffer`. Method-call borrowing (`&foo.method()`) is out of
+scope per Rust semantics.
+
+~~`ExprAtom.synth`: `_&_?<Origin>?<ViewType>:instance` — the target of `&`
 is a single `InstanceName` token. You cannot write `&self.field`,
 `&item.inner.child`, `&method()`, or `&(expr)`. Rust borrows arbitrary
 place expressions; aski restricts to the narrowest atom. Impact: any
-API that takes `&T` for a nested field is unreachable from aski source.
+API that takes `&T` for a nested field is unreachable from aski source.~~
 
 ## C8. Inherent impls — grammar has no form; spec silent
 `Root.synth` has only `#TraitImpl#[@TraitName … <Type> [+<TraitImplItem>]]` —
@@ -87,11 +114,15 @@ newtypes preserve type identity while aliases weaken it. Record as
 user-preference-OUT rather than design-spec-OUT until design.md is
 updated.
 
-## S2. No range expressions
-`0..n`, `a..=b` missing. Consequence: `for i in 0..10` has no form;
+## S2. No range expressions — LANDED in v0.21 2026-04-21
+See [syntax-v021/09-control-flow.md](syntax-v021/09-control-flow.md)
+and [syntax-v021/12-expressions.md](syntax-v021/12-expressions.md).
+`..` / `..=` merged as multi-char operators.
+
+~~`0..n`, `a..=b` missing. Consequence: `for i in 0..10` has no form;
 `Iteration` requires an expression that evaluates to an iterable, so
 either the range is a method call (`Range:new(0 10)`) or there's no
-numeric iteration.
+numeric iteration.~~
 
 ## S3. No `break` / `continue` / labeled loops
 `Statement.synth` has no `BreakStmt` / `ContinueStmt`. `break value` is
@@ -105,42 +136,65 @@ closures. Rust's `iter.map(|x| ...)` idiom has no direct form in
 aski source today. Fn/FnMut/FnOnce traits not in stdlib spec either.
 Direction still open — see [bridge/big-decisions.md §S4](bridge/big-decisions.md).
 
-## S5. No bitwise operators
-No `&`, `|`, `^`, `<<`, `>>` at Expr level (single `&` / `|` would
+## S5. No bitwise operators — LANDED in v0.21 2026-04-21
+See [syntax-v021/12-expressions.md](syntax-v021/12-expressions.md).
+Merged as stdlib method family (`.bitAnd`, `.bitOr`, `.bitXor`,
+`.shiftLeft`, `.shiftRight`, `.bitNot`) — zero grammar change;
+avoids `&` / `|` sigil conflict.
+
+~~No `&`, `|`, `^`, `<<`, `>>` at Expr level (single `&` / `|` would
 conflict with borrow / newtype sigils; `<<` / `>>` are unused). Any
 bit-twiddling code can't be written; masks and flags are common in
-systems-y code and protocols.
+systems-y code and protocols.~~
 
 ## S6. No trait objects / `dyn` / `impl Trait`
 Already in RESTART-CONTEXT §13. Re-stating because it interacts with
 S4 — without `dyn Fn` or `impl Fn`, there's no way to accept an
 arbitrary callable as a parameter.
 
-## S7. No cast `as`
-No `as` operator in grammar. design.md doesn't address it. Trait
+## S7. No cast `as` — LANDED in v0.21 2026-04-21
+See [syntax-v021/10-self-mutation-cast-path.md](syntax-v021/10-self-mutation-cast-path.md).
+Merged as stdlib From/Into traits with explicit lossy narrowing
+methods (`truncate`, `saturate`, `wrap`). Narrowing-conversion
+shape (lossy methods vs TryFrom-only) still open — outliers §U6.
+
+~~No `as` operator in grammar. design.md doesn't address it. Trait
 methods (user-defined `From` / `Into`) are already expressible via
 normal trait impl — nothing blocks them — but the stdlib doesn't
 declare them yet, so `U32:from(x)` works only if the user defines
-the trait first.
+the trait first.~~
 
-## S8. Const values are literal-only
-`Root.synth`: `#Const#{| @ConstName <Type> @Literal |}`. The right-hand
+## S8. Const values are literal-only — LANDED in v0.21 2026-04-21
+See [syntax-v021/03-newtypes-consts.md](syntax-v021/03-newtypes-consts.md).
+Const RHS now accepts `<Expr>`; veric does const-eval.
+
+~~`Root.synth`: `#Const#{| @ConstName <Type> @Literal |}`. The right-hand
 side is `@Literal` — a single literal token, not an expression. Rust
 allows arbitrary const expressions: `const MAX: u32 = BASE * 2 + 1;`.
-Aski has no form for this. Every derived constant must be hand-inlined.
+Aski has no form for this. Every derived constant must be hand-inlined.~~
 
-## S9. No associated constants in traits
-`TraitItem.synth` has only `AssociatedType` and methods. Rust trait
-`const MAX: u32;` / `const MAX: u32 = 100;` has no aski form.
+## S9. No associated constants in traits — LANDED in v0.21 2026-04-21
+See [syntax-v021/04-traits.md](syntax-v021/04-traits.md).
+Added `AssociatedConst` (TraitItem) and `AssociatedConstImpl`
+(TraitImplItem) — first-token decidable via `{|` opener.
+
+~~`TraitItem.synth` has only `AssociatedType` and methods. Rust trait
+`const MAX: u32;` / `const MAX: u32 = 100;` has no aski form.~~
 
 ## S10. No struct field destructuring on left side
 No `let Point { Horizontal h Vertical v } = point;`. Combined with C2
 (same issue in match position), this means destructuring is entirely
 absent.
 
-## S11. No array/slice literal or type
-No `[1, 2, 3]` expression, no `[T; N]` type, no `[T]` slice. `Vec` is
-the only sequence type. No compile-time-sized arrays.
+## S11. No array/slice literal or type — LANDED in v0.21 2026-04-21 (Array type only)
+See [syntax-v021/02-structs.md](syntax-v021/02-structs.md) and
+[syntax-v021/14-scorecard.md](syntax-v021/14-scorecard.md).
+Array type `{Array T N}` merged as primitive (integer-const second
+arg). Array-literal expression form still open — outliers §U4.
+Slice types `[T]` still open — outliers §U5.
+
+~~No `[1, 2, 3]` expression, no `[T; N]` type, no `[T]` slice. `Vec` is
+the only sequence type. No compile-time-sized arrays.~~
 
 ## S12. Enum variants can't carry multiple unnamed fields
 A `DataVariant` has exactly one `Type` as payload. Rust's
@@ -152,25 +206,32 @@ you name the fields.
 
 # Notable — narrower impact but real
 
-## N1. `'static` / generic lifetime parameters — covered by origins
-Place-based origins cover what Rust's lifetime generics express:
-`fn longest<'a>(x: &'a str, y: &'a str) -> &'a str` becomes a borrow
-whose origin is the union of the two input places (`&'(left right)`).
-`'static` is a conventional place name for program-root scope. See
-[bridge/clear.md §N1](bridge/clear.md). Not a real gap.
+## N1. `'static` / generic lifetime parameters — LANDED in v0.21 2026-04-21
+See [syntax-v021/11-stdlib-primitives.md](syntax-v021/11-stdlib-primitives.md).
+Place-based origins cover what Rust's lifetime generics express;
+`'Static` is a conventional place name for program-root scope.
+Merged as-is from bridge/clear.md §N1.
 
-## N2. No `!` (never) type
-`Primitive::all()` doesn't include `Never`. Functions that diverge
+## N2. No `!` (never) type — LANDED in v0.21 2026-04-21
+See [syntax-v021/11-stdlib-primitives.md](syntax-v021/11-stdlib-primitives.md).
+Added `Never` as zero-arity primitive.
+
+~~`Primitive::all()` doesn't include `Never`. Functions that diverge
 have no way to declare non-return in the current spec. Proposed
-addition in [bridge/clear.md §N2](bridge/clear.md).
+addition in [bridge/clear.md §N2](bridge/clear.md).~~
 
-## N3. Assignment and compound assignment
-No `x = y;` or `x += y;` in grammar. design.md is silent on
+## N3. Assignment and compound assignment — LANDED in v0.21 2026-04-21 (method-only direction)
+See [syntax-v021/10-self-mutation-cast-path.md](syntax-v021/10-self-mutation-cast-path.md).
+Merged as stdlib-method-only direction: `~place.set(expr)`,
+`~place.addAssign(delta)`, etc. Bare `=` / `+=` operators still
+open — outliers §U7.
+
+~~No `x = y;` or `x += y;` in grammar. design.md is silent on
 assignment operators specifically (though §Mutable Is Marked
 describes the `~` mutation marker for method-call mutation). What
 primitives "carry" in terms of stdlib mutation methods isn't
 defined by the spec. Likely route is stdlib trait methods —
-see [bridge/clear.md §N3](bridge/clear.md).
+see [bridge/clear.md §N3](bridge/clear.md).~~
 
 ## N4. Only public / private visibility
 Rust has `pub`, `pub(crate)`, `pub(super)`, `pub(in path)`. Aski's `@`
@@ -179,10 +240,15 @@ within a crate but not outside, there's no level. Probably fine for
 now given the ecosystem is small, but limits library ergonomics
 eventually.
 
-## N5. No explicit enum discriminants
-`(Http Ok NotFound)` can't set `Ok = 200`. If sema binary layout ever
+## N5. No explicit enum discriminants — LANDED in v0.21 2026-04-21
+See [syntax-v021/01-enums.md](syntax-v021/01-enums.md).
+`DiscriminantVariant` form accepts one-token lookahead at the enum
+body to read `Variant = Literal`. Final shape (bare-space vs
+bracket) open — outliers covers discriminant shape pick-and-merge.
+
+~~`(Http Ok NotFound)` can't set `Ok = 200`. If sema binary layout ever
 needs to match a wire protocol's numeric codes, you'd have to redefine
-via a lookup table. Niche but real.
+via a lookup table. Niche but real.~~
 
 ## N6. No attributes / derive / cfg
 No `#[derive(Clone, Debug)]`, no `#[cfg(...)]`, no `#[inline]`. This
@@ -196,12 +262,18 @@ are permanently OUT or just deferred.
 that emits Rust projections, some doc-carrying annotation seems
 valuable — but may just be deferred.
 
-## N8. No string escape / raw string / char / byte-string literal grammar
-`LiteralValue` in aski-core has variants `Int/Float/Str/Bool/Char/Unit`.
+## N8. No string escape / raw string / char / byte-string literal grammar — LANDED in v0.21 2026-04-21 (partial)
+See [syntax-v021/08-body-basics.md](syntax-v021/08-body-basics.md).
+Lexer-only merge: hex/oct/bin int forms, `_` numeric separators,
+typed int suffix, triple-quote raw strings, string escapes. Char
+literal: NO syntax — `Char` is a library of types (U16). Bool
+literal still open — outliers §U3.
+
+~~`LiteralValue` in aski-core has variants `Int/Float/Str/Bool/Char/Unit`.
 The lexer has to turn source tokens into these. I didn't find grammar
 for char literal form (`'x'` — apostrophe is the origin sigil) or raw
 strings. Probably not an aski-source feature yet; worth clarifying
-how non-trivial string literals are written.
+how non-trivial string literals are written.~~
 
 ## N9. No `self` by value in trait method outside of `OwnedSelf`
 `Param.synth` does support `self` (owned) — OK. But note: `Param`'s
@@ -210,12 +282,16 @@ is fine. Just flagging: the 8th param variant (`BareNamed`) without
 type may produce confusing errors if users write `self` intending
 something else. Grammar is clean; doc clarity issue.
 
-## N10. Iteration binding is a single `@Binding`
-`IterationSource.synth`: `<Expr>.@Binding`. So `for (k, v) in map` has
+## N10. Iteration binding is a single `@Binding` — LANDED in v0.21 2026-04-21
+See [syntax-v021/09-control-flow.md](syntax-v021/09-control-flow.md).
+Iteration binding merged with the documented form; destructuring-
+in-iteration still depends on C2/S10 (outliers §U11).
+
+~~`IterationSource.synth`: `<Expr>.@Binding`. So `for (k, v) in map` has
 no form (tuple destructuring missing anyway per C2/S10), but also no
 form for iterating with index (`.enumerate()` → single binding, and
 you'd need a way to destructure the `(usize, T)` tuple it yields).
-Resolves only if C2/S10 resolve.
+Resolves only if C2/S10 resolve.~~
 
 # Items that are OUT by design (listed so we don't re-raise)
 
@@ -247,7 +323,8 @@ not presume one.*
 
 ## Decisions presented as settled that weren't
 
-### U1. Deref `*x` — ACCEPTED 2026-04-21
+### U1. Deref `*x` — ACCEPTED 2026-04-21 · LANDED in v0.21 2026-04-21
+See [syntax-v021/12-expressions.md](syntax-v021/12-expressions.md).
 Resolved: unary `*x` dispatches to a stdlib `Deref` trait's method.
 Fits the methods-over-operators direction. ExprUnary gets a
 `#UnaryDeref#_*_ <ExprUnary>` alternative. Separate from raw
@@ -345,7 +422,10 @@ interpretive question: does "No Complex Lookahead" (design.md) target
 multi-token backtracking specifically, or cover single-token
 disambiguation too?
 
-### U16. Char literal delimiter — SUPERSEDED 2026-04-20 by Char-as-nested-enum
+### U16. Char literal delimiter — SUPERSEDED 2026-04-20 · LANDED in v0.21 2026-04-21
+See [syntax-v021/11-stdlib-primitives.md](syntax-v021/11-stdlib-primitives.md).
+
+Char-as-nested-enum shape
 bridge/small-decisions.md previously recommended backtick `` `x` ``.
 Li's direction: **no char literal syntax at all** — chars are a library
 of types. `Char` is an enum with nested-enum variants by category

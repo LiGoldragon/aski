@@ -416,10 +416,9 @@ Most outliers are **local decisions** — picking one among
 several candidates without further cascades. Two are not:
 
 - **S6 dyn semantics** cascades into every section that mentions
-  dyn or trait objects (bridge docs, gap-analysis, multi-surface
-  plugin systems, effect interactions, future stdlib traits).
-  The sigil (U14) is ready to land the moment semantics are
-  decided.
+  dyn or trait objects (bridge docs, gap-analysis, plugin
+  systems, effect interactions, future stdlib traits). The sigil
+  (U14) is ready to land the moment semantics are decided.
 - **U19 infinite loop** cascades into Loop.synth grammar (if
   2/3/4 wins), design.md prose (if 1 wins and becomes canon), or
   the stdlib trait catalog (if 5 wins). The five candidates each

@@ -1,6 +1,12 @@
 # Bridging Rust Gaps in Aski — Design Proposals (Index)
 
-*Last updated: 2026-04-20 · Companion to [gap-analysis.md](gap-analysis.md).*
+*Last updated: 2026-04-21 · Companion to [gap-analysis.md](gap-analysis.md).*
+
+> **See [syntax-v021.md](syntax-v021.md) for current spec.** Many
+> items in this bridge document landed in v0.21 on 2026-04-21. This
+> document remains useful as the historical record of how each
+> decision got from v0.20 to v0.21. Items still open are flagged
+> below and in [outliers-v021.md](outliers-v021.md).
 
 # Files
 
@@ -22,18 +28,19 @@ Each file carries concrete Rust / aski / synth examples per item.
   with genuinely open design. Each has alternatives with different
   character. Needs real discussion.
 
-# Status snapshot (2026-04-20)
+# Status snapshot (2026-04-21)
 
 | Bucket | Items | Status |
 |--------|-------|--------|
-| **Landed** | C1 Wildcard `_` | ✅ shipped across synth-core, askicc, aski-core |
-| **Accepted 2026-04-20** | C5 Division, C6 Unary `-` / `!` | pending grammar + aski-core landing |
-| **Proposed shapes, awaiting approval** | C3, C4, C7, N2, N7, N8, S2, S4 (named-type), S5, S7, S8, S9, S11, N3 | each item carries open sub-questions; see clear.md |
-| **Works already** | N1 (place-based origins), N9 (doc only) | Documentation task |
+| **Landed pre-v0.21** | C1 Wildcard `_` | ✅ shipped across synth-core, askicc, aski-core |
+| **Landed in v0.21 (2026-04-21)** | C4, C5, C6, C7, S2, S5, S7, S8, S9, S11, N1, N2, N3, N5, N8, N10, U1, U16, S4 Position A | see [syntax-v021.md](syntax-v021.md) |
+| **Still proposed shapes / pick-and-merge in v0.21** | C3 (LiteralPattern scope), C8 (inherent impls), N7 (doc comments — SHELVED) | see clear.md |
+| **Works already** | N9 (doc only) | Documentation task |
 | **Proposed OUT — design.md doesn't yet reject** | C8, S1, S12, N4, N6 | not permanent until design.md gains prose |
-| **Small open decisions** | S3 sigils, S6 `?{…}`, N5 lookahead, char delimiter | sigil/spelling calls, each with alternatives listed |
-| **Big open decisions** | C2+S10+N10 destructuring, S6 semantics, S4 closures | open design space |
-| **Unconsulted Claude decisions** | U1–U18 | see [gap-analysis.md §Unconsulted Claude decisions](gap-analysis.md#unconsulted-claude-decisions--now-open-gaps) |
+| **Small open decisions** | S3 sigils, S6 `?{…}` sigil, U14 dyn sigil | see small-decisions.md |
+| **Big open decisions** | C2+S10+N10 destructuring (U11), S6 semantics, S4 closures B/C (U12) | open design space — see outliers-v021.md |
+| **Outliers (hard blocks in v0.21)** | U3 (Bool literal), U4 (array literal), U5 (slice types), U6 (narrowing shape), U7 (bare `=`), U10/N4 (finer visibility), U19 (infinite loop), U20 (HKT), U21 (dependent) | see [outliers-v021.md](outliers-v021.md) |
+| **Unconsulted Claude decisions** | U1–U21 | see [gap-analysis.md §Unconsulted Claude decisions](gap-analysis.md#unconsulted-claude-decisions--now-open-gaps) |
 | **Shelved** | U8 (doc-comment sigil, 2026-04-20) | see [shelved.md](shelved.md) |
 
 # Rubric (carried forward — every proposal must respect)
@@ -75,20 +82,26 @@ Each file carries concrete Rust / aski / synth examples per item.
 - `..` / `..=` — entirely unused bigrams (→ S2 ranges).
 - `<<` / `>>` — unused in aski source.
 
-# Recommended landing order
+# Landing order — historical record
 
-### Wave A — blocker fixes (now)
-C1 (done), C5, C6, C7, N2, N8 (char backtick decision first), C3/C4 (retractions documented).
+### Wave A — blocker fixes
+C1 (shipped 2026-04-19), C5, C6, C7, N2, N8, C4 — all LANDED in v0.21
+(2026-04-21). U1 deref also LANDED.
 
-### Wave B — expressiveness (after small decisions)
-S2, S3 (after sigil nod), S8, S9, N5 (after lookahead nod), N7, C2 (after big decision).
+### Wave B — expressiveness
+S2, S8, S9, N5 — all LANDED in v0.21 (2026-04-21). S3
+(break/continue sigils) remains open. N7 (doc comments) SHELVED.
+C2 (destructuring) still open — outliers §U11.
 
-### Wave C — ecosystem (after big decisions)
-S6 (after semantic design), S11 (after S8), S4 (after philosophy choice),
-S5, S7, N3, N1, N9.
+### Wave C — ecosystem
+S11 (type), S4 (Position A), S5, S7, N3, N1 — all LANDED in v0.21
+(2026-04-21). S6 (dyn semantics) still blocked pending semantic
+design — outliers §S6. S4 Positions B/C open — outliers §U12.
 
 # Original bridge proposals (historical)
 
 The decision-organised files above supersede the prior severity-
 organised structure (`bridge/critical.md`, `bridge/significant.md`,
-`bridge/notable.md`). Content migrated 2026-04-20.
+`bridge/notable.md`). Content migrated 2026-04-20. Many individual
+items landed into v0.21 on 2026-04-21 — see
+[syntax-v021.md](syntax-v021.md) for the current spec.

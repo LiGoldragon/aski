@@ -91,7 +91,7 @@ Outliers (hard blocks or big design) — see outliers-v021.md:
 
 design.md                           — settled language principles
 bridge/paradigm.md                  — spec-status levels (Landed/Proposed/Unspec'd/OUT)
-multi-surface/decomposition.md      — II-L research (2588 lines)
+decomposition.md                    — II-L research (foundational; supersedes retired multi-surface proposal)
 gap-analysis.md                     — U1–U21 open items catalogue
 outliers-v021.md                    — items that couldn't merge cleanly
 syntax-v021/*                       — the split canonical reference (this index)

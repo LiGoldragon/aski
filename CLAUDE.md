@@ -48,8 +48,11 @@ Read `spec/design.md` first. It lists the load-bearing constraints:
 - PascalCase = compile-time structural things; camelCase = actual
   instances of a type (see `spec/design.md §PascalCase and camelCase`).
 
-Then read `spec/syntax-v020.aski` for the current language by example
-and `spec/bridge/paradigm.md` for the spec-status framework.
+Then read `spec/syntax-v021.md` (the canonical v0.21 spec index,
+split across `spec/syntax-v021/*`) for the current language by
+example, and `spec/bridge/paradigm.md` for the spec-status
+framework. `spec/syntax-v020.aski` is retained as historical
+reference.
 
 ## Key docs
 
@@ -57,17 +60,23 @@ and `spec/bridge/paradigm.md` for the spec-status framework.
 - `spec/design.md` — design constraints and rationale
 - `spec/synth.md` — synth grammar (the meta-language)
 - `spec/architecture.md` — pipeline + surfaces
-- `spec/syntax-v020.aski` — current aski syntax by example (v0.20)
+- `spec/syntax-v021.md` + `spec/syntax-v021/*` — current aski syntax
+  by example (v0.21, Identity-is-Location)
+- `spec/decomposition.md` — II-L principle derivation that led to v0.21
+- `spec/outliers-v021.md` — items that couldn't cleanly merge into v0.21
+- `spec/syntax-v020.aski` — previous syntax (historical reference only)
 
 ### Rust-gap analysis + bridge proposals
-- `spec/gap-analysis.md` — catalog of Rust features aski doesn't yet
-  cover, with severity and spec-silent-vs-confirmed-OUT distinction.
-- `spec/bridge-proposals.md` — index of bridge-proposal docs.
+- `spec/gap-analysis.md` — catalog of Rust features, with v0.21
+  landings annotated.
+- `spec/bridge-proposals.md` — index of bridge-proposal docs
+  (many items landed in v0.21 — see status snapshot).
 - `spec/bridge/paradigm.md` — ground truth on aski↔Rust relationship
   and spec-status levels (Landed / Proposed / Unspec'd / Confirmed OUT).
 - `spec/bridge/clear.md` — items with clear resolution.
 - `spec/bridge/small-decisions.md` — items awaiting naming / sigil nod.
 - `spec/bridge/big-decisions.md` — items with open design.
+- `spec/shelved.md` — parked items.
 
 ## Related repos
 

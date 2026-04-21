@@ -101,8 +101,9 @@ Content of Clock~System.wasm.effect:
 ```
 The `<platform>` segment between the stem and extension
 carries the build tag. Build selection chooses which set
-of platform-tagged effects to link. See
-`multi-surface/05-effects-and-platforms.md`.
+of platform-tagged effects to link. Prior per-concern
+effects-and-platforms proposal was retired 2026-04-21; see
+`decomposition.md` for the II-L derivation that subsumed it.
 
 ## DERIVATIONS — Name.derivation files
 
@@ -148,9 +149,9 @@ Rust equivalent:
   }
 
 `StructOf` / `AllFields` are pattern-matchers on type shape,
-provided by the derivation stdlib. See
-`multi-surface/06-derivations-and-testing.md` for the full
-pattern language.
+provided by the derivation stdlib. (Earlier per-concern
+derivations-and-testing proposal was retired 2026-04-21; the
+full pattern language remains to be specified within v0.21.)
 
 Clone derivation for enums ---------------------------------
 
