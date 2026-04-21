@@ -56,7 +56,7 @@ The first win: pull impls out of `.aski`.
    `@ImplName` slot in `.impls` surface's Root.synth (optional in
    v0.20, required in multi-surface).
 
-4. Add scope-activation grammar: `{use ImplName}` at statement
+4. Add scope-activation grammar: `{ImplName}` at statement
    position, a new Statement.synth alternative.
 
 5. veric gains a pre-coherence phase: for each (Trait, Target) pair,
@@ -143,7 +143,8 @@ Programs can advertise purity. Effect auditing is trivial.
    program, for each derivation rule whose pattern matches, synthesize
    the corresponding impl and add to the graph.
 
-4. Start with deriving core traits: Clone, Debug, Eq, Hash.
+4. Start with rules for core traits: Clone, Debug, Eq, Hash. Rules
+   apply globally to every matching type.
 
 ### Outcome
 
@@ -289,9 +290,9 @@ Total on the order of **2–3 months** of focused work to land waves
 ## Wave 1 (impls)
 
 - Commit to named impls with scope activation.
-- Pick activation syntax (`{use ImplName}` vs alternatives).
+- Pick activation syntax (`{ImplName}` vs alternatives).
 - Decide coherence-precedence rules (most-specific-wins, scope-inner-
-  wins, explicit priority).
+  wins, file-declaration-order as tiebreaker).
 
 ## Wave 2 (types + traits)
 
@@ -308,7 +309,8 @@ Total on the order of **2–3 months** of focused work to land waves
 ## Wave 4 (derivations)
 
 - Commit to the type-pattern language (what can rules match on).
-- Decide derivation priority ordering.
+- Decide derivation resolution order (most-specific by pattern, tied
+  by file-declaration order).
 
 ## Wave 5 (tests + benches)
 

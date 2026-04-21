@@ -34,7 +34,7 @@ Option 3 is aski's unlock.
 The same shape as `.impls`:
 
 ```aski
-@[@ImplName TraitName Target [ *<TraitImplItem> ]]
+@[ImplName TraitName Target [ *<TraitImplItem> ]]
 ```
 
 The difference is **what the impl is allowed to do inside**. An
@@ -63,7 +63,7 @@ impl FileReader for LocalFs {
 
 ```aski
 ;; localfs.effects
-@[@Default FileReader LocalFs [
+@[Default FileReader LocalFs [
   (readAll &self &path Path {Result String Error} [
     Rfi:FileSystem:readToString(path)
   ])
@@ -84,7 +84,7 @@ effect is tracked: anyone using `FileReader` for `LocalFs` has the
 ;; pure-math.impls
 (PureMath [arithmetic Add Sub Mul])     ;; imports .types + .traits only
 
-@[@Default Sum Vec {$Value{Add}} [
+@[Default Sum Vec {$Value{Add}} [
   (sum &self $Value [
     (total $Value:zero)
     {| self.items.item
@@ -167,7 +167,7 @@ dependency, it takes it as a generic parameter:
 
 ```aski
 ;; pure-logic.impls
-@[@Default ProcessItems Processor [
+@[Default ProcessItems Processor [
   (processAll ?{$Storage} ~&self :storage $Storage {Vec Item} [
     (items :storage.readAll)      ;; :storage may or may not be effectful
     (filtered items.filter(self.valid))
@@ -192,7 +192,7 @@ An `.effects` file can import other `.effects` files:
 
 ```aski
 ;; composite-logger.effects
-@[@Default Logger Multi [
+@[Default Logger Multi [
   (log ~&self &message String [
     ~Stderr:write(message)           ;; uses stderr.effects
     ~File:append("log.txt" message)  ;; uses filesystem.effects
@@ -212,12 +212,12 @@ surface the impl lives in**. Same trait can have both kinds of impls:
 
 ```aski
 ;; pure-clock.impls
-@[@Mock Clock FixedTime [
+@[Mock Clock FixedTime [
   (now &self Time [self.pinnedTime])     ;; pure — reads own state
 ]]
 
 ;; real-clock.effects
-@[@SystemClock Clock Utc [
+@[SystemClock Clock Utc [
   (now &self Time [Rfi:Time:systemNowUtc])  ;; effectful — reads system clock
 ]]
 ```
@@ -272,17 +272,17 @@ set to link.
 
 ```aski
 ;; native.effects
-@[@Default Clock System [
+@[Default Clock System [
   (now &self Time [Rfi:PosixTime:gettimeofday])
 ]]
 
 ;; browser.effects
-@[@Default Clock System [
+@[Default Clock System [
   (now &self Time [Rfi:JsDate:now])
 ]]
 
 ;; wasm.effects (sandboxed)
-@[@Default Clock System [
+@[Default Clock System [
   (now &self Time [Rfi:WasiClock:realtime])
 ]]
 ```
@@ -296,13 +296,13 @@ three platform surfaces. Build picks one.
 
 ```aski
 ;; native.impls
-@[@Default Path Native [
+@[Default Path Native [
   (separator String [:Platform:isWindows.map("\\" "/")])
   (join &self &parts {Vec String} String [ ... ])
 ]]
 
 ;; browser.impls
-@[@Default Path Browser [
+@[Default Path Browser [
   (separator String ["/"])
   (join &self &parts {Vec String} String [ ... ])
 ]]
@@ -324,7 +324,7 @@ Inside the program source, code references the traits normally:
 
 ```aski
 ;; time-display.impls
-@[@Default TimeDisplay App [
+@[Default TimeDisplay App [
   (display ~&self String [
     (t System:now)                  ;; System comes from the active platform
     t.toIso8601
@@ -344,12 +344,12 @@ overrides:
 
 ```aski
 ;; time-display.impls — cross-platform base
-@[@Default TimeDisplay App [
+@[Default TimeDisplay App [
   (display ~&self String [ (t System:now) t.toIso8601 ])
 ]]
 
 ;; fancy-time-display.ios.impls — iOS-specific overlay
-@[@IosFancy TimeDisplay App [
+@[IosFancy TimeDisplay App [
   (display ~&self String [
     (t System:now)
     t.toRelative                    ;; iOS-only: "2 minutes ago"
@@ -439,7 +439,7 @@ A library can demand a capability:
 
 ```aski
 ;; pdf-export.impls
-@[@Default PdfExport App [
+@[Default PdfExport App [
   (exportAll &self Pdf [
     ;; needs FileSystem capability (to write the pdf)
     ;; needs Canvas capability (to render)

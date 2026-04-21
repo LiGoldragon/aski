@@ -197,7 +197,7 @@ fn write(v: &mut Vec<u32>) { … }
 
 ;; or method style on the Vec:
 ;; .impls
-@[@Default VectorOps {Vec U32} [
+@[Default VectorOps {Vec U32} [
   (read  &self U32 [ ... ])
   (write ~&self [ ... ])
 ]]
@@ -211,7 +211,7 @@ fn longest<'a>(x: &'a str, y: &'a str) -> &'a str { … }
 
 ```aski
 ;; .impls
-@[@Longest Longest StringOps [
+@[Longest Longest StringOps [
   (longest &'(left right) left String
            &'(left right) right String
            &'(left right) String
@@ -230,7 +230,7 @@ fn find(id: u32) -> &'static str { … }
 
 ```aski
 ;; .impls
-@[@Find Finder Table [
+@[Find Finder Table [
   (find &self :id U32 &'Static String [ ... ])
 ]]
 ```
@@ -253,7 +253,7 @@ fn tick(counter: &mut Counter { count }) { counter.count += 1; }
 
 ```aski
 ;; .impls
-@[@Tick Tick Counter [
+@[Tick Tick Counter [
   (tick ~&self {| Count |} [
     ~self.Count.addAssign(1)
   ])
@@ -308,7 +308,7 @@ fn process<T>(x: T) where T: Clone + Debug + Send { … }
 ```aski
 ;; inline bounds on the method-level generic
 ;; .impls
-@[@Process Processor Self [
+@[Process Processor Self [
   (process ?{$Value{Clone Debug Send}} :x $Value [ ... ])
 ]]
 ```
@@ -324,7 +324,7 @@ fn first<'a, T>(xs: &'a [T]) -> Option<&'a T> { … }
 
 ```aski
 ;; .impls
-@[@First Extractor Self [
+@[First Extractor Self [
   (first ?{$Value} &'source xs {Slice $Value} {Option &'source $Value} [ ... ])
 ]]
 ```
@@ -436,7 +436,7 @@ impl Describe for Element { … }
 
 ```aski
 ;; .impls
-@[@Default Describe Element [ ... ]]
+@[Default Describe Element [ ... ]]
 ```
 
 ## Generic impl
@@ -447,7 +447,7 @@ impl<T: Clone> Container<T> for RingBuffer<T> { … }
 
 ```aski
 ;; .impls
-@[@Default Container {$Value{Clone}} {RingBuffer $Value} [ ... ]]
+@[Default Container {$Value{Clone}} {RingBuffer $Value} [ ... ]]
 ```
 
 ## Blanket impl
@@ -458,7 +458,7 @@ impl<T: Debug> MyTrait for T { … }
 
 ```aski
 ;; .impls
-@[@Blanket MyTrait {$Value{Debug}} $Value [ ... ]]
+@[Blanket MyTrait {$Value{Debug}} $Value [ ... ]]
 ```
 
 ## Inherent impl — OUT per paradigm
@@ -476,7 +476,7 @@ Replace with a single-method trait:
 |]
 
 ;; .impls
-@[@Default Tick Counter [
+@[Default Tick Counter [
   (tick ~&self [ ... ])
 ]]
 ```
@@ -496,7 +496,7 @@ fn emit(writer: &mut dyn Writer, msg: &str) { writer.write(msg); }
 @[| Writer (write ~&self :msg String) |]
 
 ;; .impls — takes a dyn Writer
-@[@Emit Emitter Log [
+@[Emit Emitter Log [
   (emit ~&writer {?Writer} :msg String [
     ~writer.write(msg)
   ])
@@ -531,7 +531,7 @@ let items: Vec<u32> = nums.iter().map(|x| x + 1).collect();
 @{Increment (@Amount U32)}
 
 ;; .impls
-@[@Default Callable {U32} U32 Increment [
+@[Default Callable {U32} U32 Increment [
   (call &self &input U32 U32 [input + self.Amount])
 ]]
 
@@ -849,12 +849,18 @@ pub struct Point { x: f64, y: f64 }
 ```
 
 ```aski
-;; .types
-@{Point {deriving [Clone Debug Eq]}
-  (@Horizontal F64) (@Vertical F64)}
+;; .types — the type has no directive
+@{Point (@Horizontal F64) (@Vertical F64)}
 
-;; derivation rules in .derivations apply automatically
+;; .derivations — rules in scope synthesize impls automatically
+;; (rules for Clone, Debug, Eq on Structs with all-Clone/Debug/Eq
+;; fields are in a linked derivation file)
 ```
+
+Global rules in `.derivations` files automatically apply to every
+type whose shape matches. No per-type marker on the type declaration.
+To override a derived impl for a specific type, write a hand-rolled
+`.impls` entry — specificity wins.
 
 ## #[cfg(...)] — via platform surfaces
 
@@ -868,12 +874,12 @@ pub fn separator() -> char { '/' }
 
 ```aski
 ;; windows.impls
-@[@Default Path Native [
+@[Default Path Native [
   (separator Char [Char:Punct:Backslash])
 ]]
 
 ;; unix.impls
-@[@Default Path Native [
+@[Default Path Native [
   (separator Char [Char:Punct:Slash])
 ]]
 ```
@@ -905,7 +911,7 @@ let body = fetch(url).await?;
 |]
 
 ;; .async-impls
-@[@Default Fetch HttpClient [
+@[Default Fetch HttpClient [
   (fetch &self &url String {Result Body Error} [
     ;; method body runs under a scheduler
     ... await points are method calls on awaitable values ...
@@ -936,7 +942,7 @@ unsafe fn raw_access(p: *const u32) -> u32 { *p }
 
 ```aski
 ;; .unsafe-impls
-@[@RawAccess Access Pointer [
+@[RawAccess Access Pointer [
   (rawAccess &self :p {RawPtr U32} U32 [
     ;; unchecked memory access — marked at surface level
     Rfi:Mem:read(p)
@@ -992,18 +998,18 @@ All impls live in `.impls`. Concrete examples:
 |]
 
 ;; stdlib/impls/vec-iter.impls
-@[@Default Iterator {Vec $Value} [
+@[Default Iterator {Vec $Value} [
   (Item $Value)
   (next ~&self {Option $Value} [ ... ])
 ]]
 
 ;; stdlib/impls/vec-index.impls
-@[@Default Index {Vec $Value} [
+@[Default Index {Vec $Value} [
   (at &self :idx U32 {Option &$Value} [ ... ])
 ]]
 
 ;; stdlib/impls/vec-mutate.impls
-@[@Default Mutate {Vec $Value} [
+@[Default Mutate {Vec $Value} [
   (push ~&self :value $Value [ ... ])
   (pop  ~&self {Option $Value} [ ... ])
 ]]
@@ -1022,7 +1028,7 @@ Proposed: a `.effects` surface with `.concurrent-effects` or similar.
 
 ```aski
 ;; concurrent.effects
-@[@Default Spawn Thread [
+@[Default Spawn Thread [
   (spawn ?{$Ret} :action {Callable $Ret} {Handle $Ret} [ ... ])
 ]]
 ```
@@ -1061,7 +1067,7 @@ Calling RFI:
 
 ```aski
 ;; native.effects
-@[@Default ProcessInfo System [
+@[Default ProcessInfo System [
   (pid &self U32 [Rfi:Process:getPid])
 ]]
 ```

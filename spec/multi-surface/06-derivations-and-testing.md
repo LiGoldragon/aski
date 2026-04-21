@@ -112,26 +112,30 @@ reconstructs the enum by cloning each variant's payload.
 
 ---
 
-## Derivation application — declarative at use site
+## Derivation application — global by pattern match
 
-A `.types` file opts into a derivation by marking the type:
+Derivations are **global rules**. A `.derivations` file in scope for
+a program means its rules apply to **every type in the program whose
+shape matches**.
 
 ```aski
 ;; shapes.types
-{deriving [Debug Clone Eq Hash]}           ;; module-level default for this file
 @{Point (@Horizontal F64) (@Vertical F64)}
 ```
 
-Or per-type:
+No directive on the type. No keyword. If `derive-common.derivations`
+is linked and contains a `DebugStruct` rule for `StructOf {$Struct}
+{AllFields Debug}`, and `Point`'s fields (two F64 values) all impl
+Debug, then Debug-for-Point is synthesized automatically.
 
-```aski
-@{Point {deriving [Debug Clone]}
-  (@Horizontal F64) (@Vertical F64)}
-```
+**Opt-out via explicit impl.** If the author wants a non-derived
+Debug for a specific type, they write a hand-rolled `.impls` for
+that (Trait, Target) pair. Coherence's specificity rule makes the
+explicit impl win over the generic derivation rule.
 
-`{deriving […]}` is a directive inside the type's declaration. The
-build system matches listed traits against available derivations and
-synthesizes impls.
+**Opt-out from all derivations** is implicit: don't link the
+`.derivations` file. Or link only the ones you want. Surface-level
+granularity.
 
 ---
 
@@ -183,15 +187,21 @@ A complex derivation can reference simpler ones:
 |]
 ```
 
-### Derivations can be opted out
+### Derivations can be opted out via explicit impl
+
+Write a hand-rolled `.impls` entry for the (Trait, Target) pair you
+want to override:
 
 ```aski
-@{Point {deriving [Debug Clone] {skipDeriving [Hash]}}
-  (@Horizontal F64) (@Vertical F64)}
+;; point-custom.impls — takes precedence over the generic DebugStruct rule
+@[Custom Debug Point [
+  (debug &self String ["<Point>"])
+]]
 ```
 
-"Derive Debug and Clone, but don't derive Hash even if a derivation
-exists." Explicit overrides.
+Specificity wins: `Debug for Point` as a concrete impl beats
+`DebugStruct` as a generic rule. The derivation is shadowed for
+this type, still applies to every other matching type.
 
 ### Derivations can be project-specific
 
@@ -233,28 +243,41 @@ No code execution, no supply-chain risk.
 |]
 ```
 
-Serialize a whole domain to JSON by adding `{deriving [JsonSerialize]}`
-to types. No `#[derive(Serialize)]`. No proc-macro compile time.
-Just rules.
+Serialize a whole domain to JSON by linking `json.derivations` to
+the program. Every Struct and Enum whose fields/variants impl
+JsonSerialize automatically gets a JsonSerialize impl. No
+`#[derive(Serialize)]`. No proc-macro compile time. No directives
+on types. Just rules.
 
 ---
 
-## Derivation priority
+## Derivation resolution order
 
-When multiple derivations could apply to a type, most-specific wins.
-Rules can declare specificity:
+When multiple rules could apply to a type, **most-specific wins** by
+pattern shape. No priority keyword, no annotation. The rule whose
+pattern matches more precisely is chosen:
 
 ```aski
-@[| ClonePrimitive Clone {Primitive Bool} {priority 10}
-  (clone &self Bool [*self])
+@[| ClonePrimitive Clone {Primitive Bool}
+  (clone &self Bool [self])
 |]
 
-@[| CloneStruct Clone {StructOf {$Struct} {AllFields Clone}} {priority 5}
+@[| CloneStruct Clone {StructOf {$Struct} {AllFields Clone}}
   ;; generic struct clone
 ]]
 ```
 
-Bool gets the more specific impl. Custom priority per derivation.
+`ClonePrimitive` matches only `Bool` (concrete) and is more specific
+than `CloneStruct` (matches any struct shape). For `Bool`,
+ClonePrimitive wins.
+
+Ties (two equally-specific rules) are resolved by file-declaration
+order — earlier rule wins. If explicit ordering matters beyond that,
+the author splits the rules into separate derivation files and
+controls link order.
+
+A hand-written `.impls` entry is always more specific than any
+derivation rule — explicit impls win over rules.
 
 ---
 
@@ -322,12 +345,12 @@ Same as `.impls`. Same grammar. The extension `.test-impls` signals:
 
 ```aski
 ;; app-test.test-impls
-@[@Default Storage Db [
+@[Default Storage Db [
   (read &self &key String {Option String} [Option:Some("mocked-value")])
   (write ~&self &key String &value String [Unit])
 ]]
 
-@[@Default Clock System [
+@[Default Clock System [
   (now &self Time [Time:epoch])
 ]]
 ```
@@ -354,7 +377,9 @@ Just different link graphs.
 Production:
 ```aski
 ;; app.exec
-(App [storage LocalFs])                 ;; module header pins real impl
+(App
+  [storage-lib Storage]                 ;; import
+  {LocalFs})                             ;; module-level activation: real impl
 
 (App self [
   (users self.loadUsers)
@@ -365,7 +390,7 @@ Production:
 
 ```aski
 ;; app.impls
-@[@Default UserLoader App [
+@[Default UserLoader App [
   (loadUsers &self {Vec User} [
     (data Storage:read("users.json"))     ;; dispatches via LocalFs (real)
     User:parseAll(data)
@@ -376,14 +401,16 @@ Production:
 Test:
 ```aski
 ;; app-test.test-impls
-@[@Default Storage Mock [
+@[Default Storage Mock [
   (read &self &key String {Option String} [
     Option:Some(Fixture:usersJson)        ;; fixed fixture
   ])
 ]]
 
 ;; app-test.exec
-(AppTest [storage Mock])                ;; test build pins Mock
+(AppTest
+  [storage-lib Storage]                 ;; import
+  {Mock})                                ;; module-level activation: mock
 
 (AppTest self [
   ;; same test as production, dispatches Storage:read to Mock
@@ -432,9 +459,11 @@ impl lands, tests still run (against either impl depending on build).
 
 ## Test-impls + derivations
 
-Derivations can apply in test builds too. If a derivation synthesizes
-a `TestFixture` impl for any type tagged `#[deriving TestFixture]`,
-test code gets auto-generated fixtures.
+Derivations can apply in test builds too. A `fixtures.derivations`
+file linked only in test builds synthesizes `TestFixture` impls for
+every type whose fields all impl TestFixture. No directives, no
+annotations — the fixtures exist automatically in test builds,
+vanish in production builds.
 
 ```aski
 ;; fixtures.derivations  (test-mode only)

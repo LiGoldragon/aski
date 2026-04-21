@@ -13,12 +13,13 @@ Implementations. Each impl attaches a specific behavior to a specific
 type via a specific trait. The grammar form:
 
 ```aski
-@[@ImplName TraitName Target [ *<TraitImplItem> ]]
+@[ImplName TraitName Target [ *<TraitImplItem> ]]
 ```
 
 - `@` prefix = public (impl is importable and activatable from other
   scopes).
-- `@ImplName` = impl name. Pascal. **Every impl has a name.**
+- `ImplName` = impl name. Pascal. Bare Pascal token at position 0
+  inside `[]`. **Every impl has a name.**
 - `TraitName` = the trait being implemented.
 - `Target` = the type receiving the behavior.
 - `[ *<TraitImplItem> ]` = impl body. Method bodies, associated type
@@ -42,7 +43,7 @@ impl Describe for Element {
 ```
 
 ```aski
-@[@Default Describe Element [
+@[Default Describe Element [
   (describe &self Quality (|
     ([Fire Air])      Active
     ([Earth Water])   Receptive
@@ -71,7 +72,7 @@ named, scoped choice.
 
 ```aski
 ;; fast.impls
-@[@FastIter Iterator TokenStream [
+@[FastIter Iterator TokenStream [
   (next ~&self {Option Token} [
     ;; unchecked index, cached state — raw speed
     ... tight-loop version ...
@@ -79,7 +80,7 @@ named, scoped choice.
 ]]
 
 ;; safe.impls
-@[@SafeIter Iterator TokenStream [
+@[SafeIter Iterator TokenStream [
   (next ~&self {Option Token} [
     ;; bounds-checked, invariants asserted
     ... defensive version ...
@@ -99,9 +100,9 @@ the target type:
 
 ```aski
 ;; parser.impls
-@[@Default Parser Lexer [
+@[Default Parser Lexer [
   (parse ~&self Ast [
-    {use FastIter}                  ;; activate FastIter for Iterator Bytes in this scope
+    {FastIter}                  ;; activate FastIter for Iterator Bytes in this scope
     (tokens self.bytes.iter)        ;; dispatches via FastIter
     (ast   self.build(tokens))
     ast
@@ -109,30 +110,30 @@ the target type:
 ]]
 ```
 
-`{use ImplName}` is a scope-local activation directive. Inside the
+`{ImplName}` is a scope-local activation directive. Inside the
 enclosing `[body]`, every trait method on `Bytes` that matches a
 `(Iterator, Bytes)` impl dispatches via `FastIter`. If the scope
-exits without a nested `{use …}`, the parent scope's activation
+exits without a nested `{…}`, the parent scope's activation
 resumes.
 
-The `{use}` form uses `{…}` at statement position. `{}` at statement
-is otherwise unused today — free for this directive. Alternative
-form: `(use ImplName)` with `()` at statement (currently local
-declaration). Pick during detailed grammar design; `{use …}` is
-presented here for clarity.
+The `{ImplName}` form uses `{…}` at statement position. `{}` at
+statement is otherwise unused today — free for this delimiter-only
+directive. **No keyword** — just the impl name(s) inside braces.
+Multi-activation in one statement: `{FastIter SafeHash FastBytes}`
+activates three impls together.
 
 ---
 
 # Scope activation hierarchy
 
 ```aski
-@[@Default Engine App [
+@[Default Engine App [
   (run ~&self [
-    {use SafeIter}                  ;; activate safe iter for this method
+    {SafeIter}                  ;; activate safe iter for this method
     (stream self.input.iter)         ;; safe
     
     (fastSection [
-      {use FastIter}                ;; override — fast within this block
+      {FastIter}                ;; override — fast within this block
       (chunk self.input.iter)        ;; fast
     ])
     
@@ -148,23 +149,29 @@ Like lexical scoping of values, but for impl selection.
 
 # Module-level default activation
 
-A module can declare defaults for its whole scope:
+A module can declare defaults for its whole scope. Module header
+gains an activation block via `{}`:
 
 ```aski
 ;; app.impls
-(App                                  ;; module header
-  [iter SafeIter]                     ;; every iter call in this file uses SafeIter
-  [parser DefaultParser])
+(App
+  [iter-lib   Iterator]                 ;; import (as before)
+  [parse-lib  Parser]                   ;; import
+  {SafeIter DefaultParser})             ;; activations — delimiter-only, no keyword
 
-@[@Default Engine App [
+@[Default Engine App [
   (run ~&self [
-    (stream self.input.iter)          ;; SafeIter by default
+    (stream self.input.iter)            ;; SafeIter by default (module-level)
   ])
 ]]
 ```
 
+`{…}` at module-header position (currently unused) = activation list.
+Pascal names inside = impls to activate for the whole module. Scope-
+level `{…}` overrides module-level activation.
+
 Module-header activation lets whole files commit to a set of impls
-without repeating `{use}` in every method. Per-scope overrides still
+without repeating `{…}` in every method. Per-scope overrides still
 work.
 
 ---
@@ -178,7 +185,7 @@ or in the immediate scope.
 
 veric errors:
 - **Unresolved**: two or more impls of (Trait, Target) visible with
-  no activation → "ambiguous impl; activate one via `{use …}`."
+  no activation → "ambiguous impl; activate one via `{…}`."
 - **Unavailable**: a trait method is called but no impl for that
   (Trait, Target) is visible in scope → "no impl; import or link
   one."
@@ -248,7 +255,7 @@ impl Iterator for TokenReader {
 ```
 
 ```aski
-@[@Default Iterator TokenReader [
+@[Default Iterator TokenReader [
   (Item Token)
   {| BatchSize U32 256 |}
   (next ~&self {Option Token} [
@@ -277,7 +284,7 @@ impl<T: Clone> Container<T> for RingBuffer<T> {
 ```
 
 ```aski
-@[@Default Container {$Value{Clone}} {RingBuffer $Value} [
+@[Default Container {$Value{Clone}} {RingBuffer $Value} [
   (push ~&self :value $Value [ ... ])
 ]]
 ```
@@ -294,7 +301,7 @@ impl<T: Debug> Describe for T { … }
 ```
 
 ```aski
-@[@BlanketDebug Describe {$Any{Debug}} $Any [
+@[BlanketDebug Describe {$Any{Debug}} $Any [
   (describe &self Quality [ ... ])
 ]]
 ```
@@ -315,7 +322,7 @@ impl ForeignTrait for ForeignType { … }
 
 aski allows it:
 ```aski
-@[@MyExtension ForeignTrait ForeignType [
+@[MyExtension ForeignTrait ForeignType [
   (method &self Output [ ... ])
 ]]
 ```
@@ -335,15 +342,15 @@ adding common behavior to external types.
 An impl can reference other impls explicitly:
 
 ```aski
-@[@ChainedDebug Debug {$Value} [
+@[ChainedDebug Debug {$Value} [
   (debug &self String [
-    {use PrettyPrint}
+    {PrettyPrint}
     self.prettyPrint
   ])
 ]]
 ```
 
-`{use PrettyPrint}` inside a method body activates PrettyPrint's
+`{PrettyPrint}` inside a method body activates PrettyPrint's
 methods on self. If PrettyPrint is a trait with an impl for `$Value`,
 the chain works.
 
@@ -364,12 +371,12 @@ impl DoubleEndedIterator for TokenReader {
 ```
 
 ```aski
-@[@Default Iterator TokenReader [
+@[Default Iterator TokenReader [
   (Item Token)
   (next ~&self {Option Token} [ ... ])
 ]]
 
-@[@Default DoubleEndedIterator TokenReader [
+@[Default DoubleEndedIterator TokenReader [
   (nextBack ~&self {Option Token} [ ... ])
 ]]
 ```
@@ -387,7 +394,7 @@ For each (Trait, TargetType) pair that appears in the program:
 1. **Global inventory**: veric collects every impl from every
    `.impls` file.
 2. **Per-scope resolution**: at each call site, veric walks
-   active `{use}` directives from innermost to outermost.
+   active `{…}` directives from innermost to outermost.
 3. **Conflict check**: if a scope lacks explicit activation and
    multiple impls exist, veric errors.
 4. **Coverage check**: if a trait method is called and no impl is
@@ -403,9 +410,9 @@ use different impls without conflict.
 Blanket impls interact with concrete impls via ordering:
 
 ```aski
-@[@BlanketDescribe Describe {$T{Debug}} $T [ ... ])
+@[BlanketDescribe Describe {$T{Debug}} $T [ ... ])
 
-@[@SpecificDescribe Describe Element [ ... ])
+@[SpecificDescribe Describe Element [ ... ])
 ```
 
 For `Element` (which has `Debug`), both match. Rule: **most specific
@@ -421,14 +428,14 @@ required.
 
 ```aski
 ;; iter-v1.impls
-@[@V1 Iterator TokenStream [ ... old semantics ... ]]
+@[V1 Iterator TokenStream [ ... old semantics ... ]]
 
 ;; iter-v2.impls
-@[@V2 Iterator TokenStream [ ... new semantics ... ]]
+@[V2 Iterator TokenStream [ ... new semantics ... ]]
 ```
 
-During migration, old code keeps `{use V1}` in its scopes. New code
-uses `{use V2}`. When ready to retire V1, remove the file and update
+During migration, old code keeps `{V1}` in its scopes. New code
+uses `{V2}`. When ready to retire V1, remove the file and update
 any remaining scopes. No flag days, no big-bang switches.
 
 ---
@@ -456,14 +463,15 @@ by the named-impl architecture.)
 
 ```aski
 ;; my.test-impls
-@[@Mock Storage Database [
+@[Mock Storage Database [
   (read &self &key String {Option String} [Option:Some("mocked")])
   (write ~&self &key String &value String [Unit])
 ]]
 
 ;; my.exec (test build)
 (Test
-  [storage Mock])              ;; activate the mock impl for the whole test
+  [storage-lib Storage]        ;; import
+  {Mock})                       ;; activate the mock impl for the whole test
 ```
 
 Same mechanism. Different file extension signals "test-only."
@@ -512,7 +520,7 @@ becomes a separate phase with well-defined inputs:
 - All `.types` rkyv (types)
 - All `.traits` rkyv (trait decls)
 - All `.impls` rkyv (impls)
-- Module-header activations + scope-level `{use}` directives
+- Module-header activations + scope-level `{…}` directives
 
 Outputs:
 - Impl graph (Trait × Target → Vec<NamedImpl>)

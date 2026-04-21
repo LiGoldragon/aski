@@ -80,8 +80,12 @@ trait for a type if you own one of them."
 With a dedicated `.impls` surface and veric as the coherence authority,
 the rule flips: **any `.impls` file can impl anything, but veric
 verifies that across the whole program, exactly one impl is active
-for each (trait, target) pair in each scope.** Coherence is preserved
-but no longer requires ownership.
+for each (trait, target) pair in each scope.** Coherence is still
+enforced at the program level — what's relaxed is the "must live in
+the same crate as the trait or the type" rule that Rust uses as a
+proxy for coherence. Aski enforces coherence directly (one active
+impl per pair per scope) without needing crate-level ownership as a
+proxy.
 
 Library ecosystems flourish under this model. Extending foreign types
 with foreign traits becomes natural, not a newtype workaround.
@@ -92,12 +96,12 @@ When impls have their own surface, they can have names:
 
 ```aski
 ;; fast.impls
-@[@FastIter Iterator TokenStream [
+@[FastIter Iterator TokenStream [
   (next ~&self {Option Token} [ ... tight-loop ... ])
 ]]
 
 ;; safe.impls
-@[@SafeIter Iterator TokenStream [
+@[SafeIter Iterator TokenStream [
   (next ~&self {Option Token} [ ... bounds-checked ... ])
 ]]
 ```
@@ -107,7 +111,7 @@ one:
 
 ```aski
 (parseTokens ~&self [
-  {use FastIter}
+  {FastIter}
   (tokens self.stream.iter)
   ;; self.stream.iter dispatches via FastIter inside this scope
 ])

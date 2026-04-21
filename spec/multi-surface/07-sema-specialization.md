@@ -56,7 +56,7 @@ not just the generic-type level.
 
 ```aski
 ;; fast-iter.impls
-@[@FastIter Iterator TokenStream [
+@[FastIter Iterator TokenStream [
   (next ~&self {Option Token} [
     (| self.cursor < self.buffer.len
       ( True ) [
@@ -70,7 +70,7 @@ not just the generic-type level.
 ]]
 
 ;; safe-iter.impls
-@[@SafeIter Iterator TokenStream [
+@[SafeIter Iterator TokenStream [
   (next ~&self {Option Token} [
     ~self.cursor.addAssign(1)
     (idx self.cursor - 1)
@@ -123,12 +123,12 @@ In aski:
 
 ```aski
 ;; single-thread.impls
-@[@Default Sort {Vec U32} [
+@[Default Sort {Vec U32} [
   (sort ~&self [ self.sortUnstable ])
 ]]
 
 ;; rayon.impls
-@[@Default Sort {Vec U32} [
+@[Default Sort {Vec U32} [
   (sort ~&self [ Rfi:Rayon:parallelSort(self) ])
 ]]
 ```
@@ -145,17 +145,17 @@ link-graph commitment.
 
 ```aski
 ;; noop-log.impls
-@[@Default Log Logger [
+@[Default Log Logger [
   (log ~&self &_ String [ Unit ])         ;; discard
 ]]
 
 ;; stderr-log.effects
-@[@Default Log Logger [
+@[Default Log Logger [
   (log ~&self &message String [Rfi:Stderr:write(message)])
 ]]
 
 ;; counting-log.impls
-@[@Default Log Logger [
+@[Default Log Logger [
   (log ~&self &_ String [
     ~self.counter.addAssign(1)               ;; counts without logging
   ])
