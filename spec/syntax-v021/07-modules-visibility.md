@@ -1,66 +1,61 @@
-## NO MODULE HEADERS IN SOURCE
+# Modules and visibility
 
-v0.20's `(ModuleName [Imports...])` as the first form of every
-`.aski` file is retired. A directory IS a module. No source
-file names its module; no source file lists its imports.
+## Directory = module
 
-What v0.20 wrote:
+No module header in source. A directory IS a module. No source file names its module; no source file lists its imports inside the body.
 
-  ;; shapes/shapes.aski (v0.20)
-  (Shapes
-    [core Element Quality]
-    [collections Vec])
+```
+shapes/
+  imports                           # single imports file
+  Shape.enum                        # one public object per file
+```
 
-  @(Shape (Circle F64) (Rectangle (Width F64) (Height F64)))
-  ...
+`shapes/imports`:
 
-What v0.21 writes:
+```aski
+[core Element Quality]
+[collections Vec]
+```
 
-  shapes/
-    imports                           ;; single imports file
-      [core Element Quality]
-      [collections Vec]
-    Shape.enum                        ;; one public object per file
-      (Circle F64)
-      {Rectangle (Width F64) (Height F64)}
+`shapes/Shape.enum`:
 
-The module's name IS the directory name (`shapes`). The
-visibility is implicit: files are public unless prefixed with `_`.
+```aski
+(Circle F64)
+{Rectangle (Width F64) (Height F64)}
+```
 
-## VISIBILITY
+The module's name IS the directory name (`shapes`). File visibility is implicit from the filename prefix.
 
-Visibility channels in v0.21:
+## Visibility channels
 
-  * File-level: filename prefix `_` = private (visible only
-    within its directory). No prefix = public (visible to
-    importers).
-  * Field-level: `@` sigil on struct field names retains the
-    v0.20 semantics — field-level visibility lives inside the
-    struct body because one struct file can mix public and
-    private fields. `@` has no other meaning in v0.21.
-  * Directory-level: a directory prefixed `_` is a private
-    sub-module — all its files are visible only within the
-    parent directory.
+| Level | Channel | Public | Private |
+|---|---|---|---|
+| File | filename prefix | `Name.ext` | `_Name.ext` |
+| Directory | dirname prefix | `name/` | `_name/` |
+| Struct field | `@` sigil in body | `@Field` | `Field` |
+| Newtype transparency | `@` on wrapped type in body | `@Type` | `Type` |
 
-What v0.20 had that v0.21 doesn't need:
-  * `@` prefix on root declarations
-  * `@` prefix on newtype wrapped types for public transparency
-    — WAIT: `@` on the wrapped type INSIDE .newtype files
-    survives in v0.21 because transparency is a per-newtype
-    choice that lives in the body, not the path. See NEWTYPES.
+No other visibility sigils or keywords exist. Scoped visibility (`pub(crate)`, `pub(super)`, `pub(in path)`) is not currently supported — see [16-open-questions §Scoped visibility](16-open-questions.md#scoped-visibility).
 
-Summary table:
+## Path-level vs body-level visibility
 
-  v0.20 form                  v0.21 form
-  -------------------------   -------------------------
-  @(Enum ...)                 Enum.enum
-  (Enum ...)                  _Enum.enum
-  @{Struct ...}               Struct.struct
-  {Struct ...}                _Struct.struct
-  @(@FieldName Type)          (@FieldName Type) inside Struct.struct
-  @(FieldName Type)           (FieldName Type) inside Struct.struct
-  @(| Newtype @Type |)        Newtype.newtype with content: @Type
-  @(| Newtype Type |)         Newtype.newtype with content: Type
-  @{| Const Type Literal |}   Const.const with content: Type Literal
-  @[| Trait ... |]            Trait.trait
-  @[Impl Trait Target ...]    Trait~Target.impl (stem = impl name)
+Most visibility lives at the path level (filename/dirname prefix). Two cases stay in the body:
+
+- **Struct fields** — one struct file can mix public and private fields, so per-field visibility lives inside the body.
+- **Newtype transparency** — whether a newtype exposes its wrapped value is per-newtype, lives in the body.
+
+The `@` sigil has no root-level meaning in v0.21 (root visibility moved to the filename prefix).
+
+## Private sub-modules
+
+A directory prefixed `_` is a private sub-module. All its files are visible only within the parent directory.
+
+```
+mylib/
+  Public.struct
+  _internal/
+    Helper.struct        # visible only inside mylib/
+    Detail.enum
+```
+
+Private sub-modules can contain public files (no prefix) — but their visibility is capped by the private parent directory. The file IS public, but only within `mylib/`.

@@ -1,77 +1,67 @@
-## RFI — .rfi files (Rust foreign interfaces)
+# RFI and exec
 
-Rust foreign interfaces live in `.rfi` files, one group per
-file. Under II-L, each `.rfi` file declares ONE foreign group.
-The filename is the group name.
+## RFI — Rust foreign interfaces
 
-Filesystem path:
-  FileSystem.rfi
+Rust foreign interfaces live in `.rfi` files, one group per file. The filename is the group name.
 
-File content:
+```
+FileSystem.rfi
+```
 
 ```aski
 (readToString &path Path {Result String Error})
 (writeString &path Path &content String {Result Unit Error})
 (exists &path Path Bool)
 (remove &path Path {Result Unit Error})
+```
+
+```rust
+extern "Rust" {
+    fn read_to_string(path: &Path) -> Result<String, Error>;
+    fn write_string(path: &Path, content: &str) -> Result<(), Error>;
+    fn exists(path: &Path) -> bool;
+    fn remove(path: &Path) -> Result<(), Error>;
+}
+```
+
+Each entry is a signature. An `.rfi` group is callable as `Rfi:GroupName:funcName(args)` from inside `.effect` files (not `.impl` — a pure impl cannot call RFI).
 
 ```
-Rust equivalent:
-  extern "Rust" {
-      fn read_to_string(path: &Path) -> Result<String, Error>;
-      fn write_string(path: &Path, content: &str)
-          -> Result<(), Error>;
-      ...
-  }
-
-Each entry is a signature. An `.rfi` group is callable via
-`Rfi:FileSystem:readToString(path)` from inside `.effect`
-files (not `.impl` — a pure impl cannot call RFI).
-
-Filesystem path:
-  Lexer.rfi
-
-File content:
+Lexer.rfi
+```
 
 ```aski
 (lex &source String {Vec Token})
 (tokenize &source String {Vec Token})
-
 ```
 
-## EXEC — Name.exec files (entry-point programs)
+## Exec — entry-point programs
 
-An exec file IS an executable program. The filename is the
-program's name (the binary target). Content is a program body:
-a sequence of statements.
+An `.exec` file IS an executable program. The filename is the program's name (the binary target). Content is a program body — a sequence of statements followed by an optional tail expression.
 
-Filesystem path:
-  Hello.exec
-
-File content:
+```
+Hello.exec
+```
 
 ```aski
 (element Element:Fire)
 [StdOut:print(element.describe)]
+```
+
+```rust
+fn main() {
+    let element = Element::Fire;
+    println!("{}", element.describe());
+}
+```
+
+No module header. No name declaration. The filename `Hello.exec` becomes the executable name.
+
+### Larger exec
 
 ```
-Rust equivalent:
-  fn main() {
-      let element = Element::Fire;
-      println!("{}", element.describe());
-  }
-
-The file's grammar = `<Body>`: a sequence of Statements
-followed by an optional tail expression. No module header.
-No name declaration. The filename `Hello.exec` becomes the
-executable name.
-
-A larger exec file:
-
-Filesystem path:
-  Parser.exec
-
-File content:
+Parser.exec
+```
 
 ```aski
 (args Args:fromProcess)
@@ -81,9 +71,8 @@ File content:
 (parser Parser:new(tokens))
 (ast parser.parse?)
 [StdOut:print(ast.debug)]
-
 ```
-Effect closure: `Rfi:FileSystem:readToString` is effectful, so
-a `FileReader.effect` must be linked. If the build links
-`FileReader~LocalFs.effect`, the program reads from the local
-filesystem. For tests, swap in `FileReader~Memory.test-impl`.
+
+### Effect closure
+
+`Rfi:FileSystem:readToString` is effectful, so a `FileReader.effect` must be linked. If the build links `FileReader~LocalFs.effect`, the program reads from the local filesystem. For tests, swap in `FileReader~Memory.test-impl`.

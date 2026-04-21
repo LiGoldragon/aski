@@ -1,66 +1,91 @@
-## NEVER PRIMITIVE (N2 — MERGED 2026-04-21)
+# Stdlib primitives
 
-`Never` is a zero-arity primitive for functions that do not
-return normally. Mirrors Rust's `!`.
+## Primitive types
 
-  (panic &msg String Never)
-  (runForever ~&self Never [| true [self.tick] |])
+Zero-arity primitives in the base type system:
 
-Rust equivalent:
-  fn panic(msg: &str) -> ! { … }
-  fn run_forever(&mut self) -> ! { loop { self.tick() } }
+| Type | Role |
+|---|---|
+| `U8`, `U16`, `U32`, `U64` | unsigned integers |
+| `I8`, `I16`, `I32`, `I64` | signed integers |
+| `F32`, `F64` | floats |
+| `Bool` | boolean (see below) |
+| `String` | UTF-8 string |
+| `Unit` | zero-information |
+| `Never` | divergent (see below) |
 
-Zero grammar change. Add `("Never", 0)` to `Primitive::all()`.
-Sema representation: a zero-variant enum (one plausible shape;
-rsc maps to `!` in Rust projection when it lands).
+Arity-1 primitives: `Vec`, `Option`, `Box`.
+Arity-2 primitives: `Result`, `Array`.
 
-;; MERGED FROM N2 — see gap-analysis.md §N2 and
-;; bridge/clear.md §N2.
+`Array` takes `{Array Element Size}` where `Size` is a const-eval U32 expression.
 
-## 'Static AND LIFETIME GENERICS (N1 — MERGED 2026-04-21)
+## Bool
 
-Rust's lifetime generics (`<'a>` on fns) are covered by aski's
-place-based origins (see REFERENCES, BORROWS, ORIGINS, VIEWS
-above). `'Static` is a conventional PlaceName for program-root
-scope — already a valid `PlaceRef` under the origin grammar.
+`Bool` is a primitive with two literal tokens: `true` and `false`. They are literal tokens — same class as integer literals like `42` — not identifiers. The case rule (which dispatches on the first character of an *identifier*) does not apply: literals are their own token category.
 
-  (longest &'(left right) left String
-           &'(left right) right String
-           &'(left right) String [ … ])
+```aski
+(ready Bool true)
+(failed Bool false)
+```
 
-  (findName &id U32 &'Static String [
-    GlobalTable.lookup(id)
-  ])
+```rust
+let ready: bool = true;
+let failed: bool = false;
+```
 
-Rust equivalent:
-  fn longest<'a>(left: &'a str, right: &'a str) -> &'a str { … }
-  fn find_name(id: u32) -> &'static str { GLOBAL_TABLE.lookup(id) }
+In match arms:
 
-No grammar change — `'Static` is a place name by convention.
-Every other "lifetime generic" scenario maps to a place-union
-origin.
+```aski
+(| self.ready
+  (true)   self.run
+  (false)  self.wait
+|)
+```
 
-;; MERGED FROM N1 — see gap-analysis.md §N1 and
-;; bridge/clear.md §N1.
+`Bool` has the standard boolean operators (`&&`, `||`, `!`) and comparison ops that produce it.
 
-## CHAR LIBRARY — Char:Upper:A etc. (U16 landing)
+## Never
 
-Char has no literal syntax. Char is an enum library where each
-individual character is a variant accessed by chained path.
+`Never` is a zero-arity primitive for functions that do not return normally. Mirrors Rust's `!`.
 
-The filesystem layout under II-L:
+```aski
+(panic &msg String Never)
+(runForever ~&self Never [| [self.tick] |])
+```
 
-  Char.enum                           ;; the top-level enum
-    Upper                             ;; nested enum (letters A-Z)
-    Lower                             ;; nested enum (letters a-z)
-    Digit                             ;; nested enum (digits 0-9 as words: Zero, One, ...)
-    Whitespace                        ;; nested enum (Space, Tab, Newline, CarriageReturn, ...)
-    Control                           ;; nested enum
-    Punct                             ;; nested enum (Tilde, Comma, Period, ...)
-    Bracket                           ;; nested enum (LParen, RParen, LBracket, ...)
-    (Code (Codepoint U32))            ;; fall-through for non-categorized Unicode
+```rust
+fn panic(msg: &str) -> ! { ... }
+fn run_forever(&mut self) -> ! { loop { self.tick() } }
+```
 
-Char.enum content:
+## 'Static and lifetime generics
+
+Rust's lifetime generics (`<'a>`) map to aski's place-based origins. `'Static` is a conventional PlaceName for program-root scope.
+
+```aski
+(longest &'(left right) left String
+         &'(left right) right String
+         &'(left right) String [ ... ])
+
+(findName &id U32 &'Static String [
+  GlobalTable.lookup(id)
+])
+```
+
+```rust
+fn longest<'a>(left: &'a str, right: &'a str) -> &'a str { ... }
+fn find_name(id: u32) -> &'static str { GLOBAL_TABLE.lookup(id) }
+```
+
+`'Static` is a place name by convention — no grammar change. Other lifetime-generic scenarios map to place-union origins (`&'(a b)` = union of two places).
+
+## Char library
+
+`Char` is an enum library where each character is a variant accessed by chained path. No character literal syntax — characters are a library, not a primitive literal form.
+
+```
+Char.enum
+```
 
 ```aski
 (| Upper A B C D E F G H I J K L M N O P Q R S T U V W X Y Z |)
@@ -71,41 +96,51 @@ Char.enum content:
 (| Punct Tilde Comma Period Question Exclamation Colon Semicolon Apostrophe QuotationMark Hyphen Underscore ... |)
 (| Bracket LParen RParen LBracket RBracket LBrace RBrace LAngle RAngle |)
 (Code (Codepoint U32))
+```
+
+Usage:
+
+```aski
+(c Char:Upper:A)                    # the letter A
+(space Char:Whitespace:Space)
+(sigma Char:Code(0x03C3))           # Greek small sigma (non-categorized)
+```
+
+Under II-L, the library can be split:
 
 ```
-Rust equivalent (roughly):
-  pub enum Char {
-      Upper(UpperLetter),   // UpperLetter: A, B, C, ..., Z
-      Lower(LowerLetter),
-      Digit(DigitName),
-      Whitespace(WhitespaceKind),
-      ...
-      Code { codepoint: u32 },
-  }
+stdlib/
+  Char.enum                         # head: variants by category
+  Char/
+    Upper.enum                      # A..Z as bare variants
+    Lower.enum                      # a..z
+    Digit.enum                      # Zero..Nine
+    Whitespace.enum
+    Control.enum
+    Punct.enum
+    Bracket.enum
+```
 
-Usage in source:
+The final category list is still provisional. See [16-open-questions §Char category list](16-open-questions.md#char-category-list).
 
-  (c Char:Upper:A)                    ;; the letter A
-  (space Char:Whitespace:Space)
-  (sigma Char:Code(0x03C3))           ;; Greek small sigma (non-categorized)
+## Arrays
 
-The case of a letter is carried by the outer variant
-(Upper/Lower) — no case-rule carve-out needed. There is no
-`'A'` or `` `A` `` literal. Chars are a library, not a
-primitive literal form.
+```aski
+(buffer {Array U32 16} Array:fill(16 0))
+(table  {Array {Array U8 8} 8} Table:blank)
 
-Under II-L, this library can be split:
+# BoardSize.const -> U32 8
+(board {Array Cell BoardSize * BoardSize})
+```
 
-  stdlib/
-    Char.enum                         ;; the head: variants by category
-    Char/
-      Upper.enum                      ;; A..Z as bare variants
-      Lower.enum                      ;; a..z
-      Digit.enum                      ;; Zero..Nine
-      Whitespace.enum
-      Control.enum
-      Punct.enum
-      Bracket.enum
+```rust
+let buffer: [u32; 16] = ...;
+let table:  [[u8; 8]; 8] = Table::blank();
+let board:  [Cell; BOARD_SIZE * BOARD_SIZE];
+```
 
-;; OPEN — final category list (Upper/Lower/Digit/Whitespace/
-;; Control/Punct/Bracket provisional); see gap-analysis.md §U16.
+Construction is via methods: `Array:fill(n, value)`, `Array:of(a, b, c)`. No delimiter-array literal form — see [16-open-questions §Array literals](16-open-questions.md#array-literals).
+
+## Currently unspec'd primitives
+
+These are not in v0.21 and not explicitly rejected — see [16-open-questions §Unspec'd primitives](16-open-questions.md#unspecd-primitives) for the list (U128/I128, Usize/Isize, &str, Rc/Arc, Cell/RefCell, Mutex/RwLock, HashMap/HashSet, slice `[T]`).

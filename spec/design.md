@@ -10,7 +10,6 @@ outer object delimiters) out of source and onto the filesystem.
 The body grammar (local decls, match, loop, iteration,
 references, borrows, origins, views, generic slot, bound sets,
 path syntax, case rule) is unchanged from v0.20. See
-[decomposition.md](decomposition.md) for the II-L derivation and
 [syntax-v021.md](syntax-v021.md) for the canonical current spec.
 
 
@@ -38,6 +37,16 @@ The criome is the endgoal — the runtime that hosts sema worlds.
 Do not treat aski as the center of the system. Sema is the
 center. Aski is one path to it.
 
+**Sema references types; sema does not store trait-object
+values.** A signature can mention `?{Trait}` — that is a type
+expression, metadata about code. Sema can describe "this
+method takes a `&?{Writer}`." A *value* of dyn type is a fat
+pointer `(data_ptr, vtable_ptr)` whose vtable pointer is
+process-local and has no meaning across serialization. `veric`
+enforces: no field of a serialized type may have a `?{Trait}`
+type. The ordinary distinction between talking about something
+and storing an instance of it.
+
 
 ## Domain = Any Data Definition
 
@@ -61,9 +70,7 @@ name. Extension = kind. One public object per file. Directory =
 module. An `_` prefix on a filename (or directory name) marks it
 private. Each directory carries an `imports` file that lists the
 names visible in that module. See
-[decomposition.md](decomposition.md) for the II-L principle that
-drives this layout, and [syntax-v021.md](syntax-v021.md) for the
-canonical spec.
+[syntax-v021.md](syntax-v021.md) for the canonical spec.
 
 Per-kind extensions (v0.21):
 
@@ -99,8 +106,7 @@ splits that single surface into per-kind extensions.
 A short-lived intermediate proposal (per-concern surfaces like
 `.types` / `.traits` / `.impls`) still kept many objects per file
 and source-level module headers; it was superseded by v0.21 before
-landing. See [decomposition.md](decomposition.md) for the full
-derivation.
+landing.
 
 
 ## Every Construct Is Delimited (v0.19 — body-internal under v0.21)
@@ -218,6 +224,13 @@ Type application uses `{}`:
 as dialect references (`<Type>`, `<Body>`), which are parser
 instructions, not source syntax.
 
+Sigils may carry more than one meaning, disambiguated by
+position (same principle as delimiters). `?` carries three:
+postfix on an expression = try-unwrap; prefix immediately
+after `[|` = while-condition marker; prefix immediately before
+`{` at type position = dyn trait type. Each position is
+parser-unambiguous. Readers learn the set once.
+
 
 ## Position Defines Meaning
 
@@ -320,13 +333,14 @@ thing a name refers to.
 This is not convention — it is syntax. The parser distinguishes
 PascalCase from camelCase tokens and dispatches differently.
 
-Historical note: the current form was established in v0.19 with
-the trait flip (traits moved from camel to Pascal — they are
-categories of types, noun-like) and the instance flip (locals
-moved to camelCase — they are instances, not structural entities).
-The `@` sigil was retired as an instance marker at the same time;
-locals are declared inside `()` at statement position and
-referenced bare.
+**Literal tokens are a separate category from identifiers.**
+Numeric literals (`42`, `3.14`), string literals (`"hi"`), and
+the bool literals `true` / `false` are not identifiers — they
+are literal tokens, their own lexer class. The case rule
+dispatches on identifier first-character; it has nothing to
+say about `true` any more than it does about `42`. A bool
+literal is an instance of the primitive type `Bool`, not an
+instance of a missing Pascal type named `True`.
 
 
 ## Mutable Is Marked
@@ -351,9 +365,9 @@ Rust — Rust is the compilation target, not the implementation
 language.
 
 (Previous drafts of this section asserted "No higher-kinded types.
-No dependent types (yet)." Those claims were Claude-authored and
-never confirmed; they are now open questions — see gap-analysis.md
-§U20 and §U21.)
+No dependent types (yet)." Those claims were never confirmed and
+are tracked as open questions in
+[syntax-v021/16-open-questions.md](syntax-v021/16-open-questions.md#hkt).)
 
 
 ## Instances Are Owned
@@ -449,8 +463,8 @@ visible in that module).
 
 Rust's finer-grained visibility (`pub(crate)`, `pub(super)`,
 `pub(in path)`) has no encoding yet — see
-[outliers-v021.md §U10 / N4](outliers-v021.md) for the open
-question.
+[syntax-v021/16-open-questions.md §Scoped visibility](syntax-v021/16-open-questions.md#scoped-visibility)
+for the open question.
 
 
 ## No Tuples
@@ -611,7 +625,7 @@ the universal framing term, not "Sema" or "Sajban."
 6. **We compile to Rust.** Kinds are implicit (count $ slots in a
    definition). Whether aski allows higher-kinded types at the aski
    layer (desugared on the way to Rust) is open — see
-   gap-analysis.md §U20.
+   [syntax-v021/16-open-questions.md §HKT](syntax-v021/16-open-questions.md#hkt).
 
 7. **Everything synth-driven.** Types have their own dialect (Type.synth).
 

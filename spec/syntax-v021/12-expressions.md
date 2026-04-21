@@ -1,272 +1,265 @@
-## TYPE APPLICATION — {Constructor Args...}
+# Expressions
 
-Unchanged from v0.20.
+## Type application
 
-  {Vec U32}
-  {Option {Vec String}}
-  {Result U32 ConversionError}
-  {Map String {Vec Token}}
-  {HashMap String {Vec Token}}
-  {Box Tree}
-  {Tree $Value}
+`{Constructor Arg Arg ...}` — applies a type constructor to its arguments.
 
-Array type (S11 — MERGED 2026-04-21) -----------------------
+```aski
+{Vec U32}
+{Option {Vec String}}
+{Result U32 ConversionError}
+{Map String {Vec Token}}
+{HashMap String {Vec Token}}
+{Box Tree}
+{Tree $Value}
+```
 
-Array is a two-arg primitive: `{Array Element Size}`. The
-second arg is an integer-const expression that const-evals to
-U32. Requires S8 (const expressions) for size expressions.
+### Array type
 
-  (buffer {Array U32 16} Array:fill(16 0))
-  (table  {Array {Array U8 8} 8} Table:blank)
+```aski
+{Array U32 16}
+{Array {Array U8 8} 8}
+{Array Cell BoardSize * BoardSize}
+```
 
-  ;; BoardSize.const -> U32 8
-  (board {Array Cell BoardSize * BoardSize})
+The second arg is a const-eval `U32` expression.
 
-Rust equivalent:
-  let buffer: [u32; 16] = ...;
-  let table:  [[u8; 8]; 8] = Table::blank();
-  let board:  [Cell; BOARD_SIZE * BOARD_SIZE];
+## Struct construction
 
-Zero grammar change. Add `("Array", 2)` to `Primitive::all()`.
-Scope: integer-const size only (U32). No string, no char, no
-structured-literal size parameters.
+`{ :Type (:Field Expr) ... }` — constructs an instance.
 
-;; MERGED FROM S11 — see gap-analysis.md §S11 and
-;; bridge/clear.md §S11. No array-literal expression form —
-;; construction via Array:fill / Array:of methods only. Array
-;; literal expression syntax stays open (U4) — see
-;; outliers-v021.md.
+```aski
+{Point (Horizontal 3.0) (Vertical 4.0)}
 
-## STRUCT CONSTRUCTION (in expression position)
+{Page
+  (Content "")
+  (Orientation Portrait)
+  (Margin {Margin (Top 10) (Bottom 10) (Left 5) (Right 5)})}
+```
 
-`{ :Type (:Field Expr) ... }` — unchanged.
-
-  {Point (Horizontal 3.0) (Vertical 4.0)}
-
-  {Page
-    (Content "")
-    (Orientation Portrait)
-    (Margin {Margin (Top 10) (Bottom 10) (Left 5) (Right 5)})}
-
-## BINARY OPERATORS
+## Binary operators
 
 Precedence, low → high:
-  ||, &&, ==/!=/<=/>=/</>, +/-, *, /, %
 
-Division `/` is v0.21-landing (C5, accepted 2026-04-20).
-Modulo is `%`.
+```
+||
+&&
+== != <= >= < >
++ -
+*
+/ %
+```
 
-Example body (inside a method):
+```aski
+(a self.Left + self.Right)          # BinAdd
+(b self.Left - self.Right)          # BinSub
+(c self.Left * self.Right)          # BinMul
+(d self.Left / self.Right)          # BinDiv
+(e self.Left % self.Right)          # BinMod
+```
 
-  (a self.Left + self.Right)          ;; BinAdd
-  (b self.Left - self.Right)          ;; BinSub
-  (c self.Left * self.Right)          ;; BinMul
-  (d self.Left / self.Right)          ;; BinDiv (v0.21)
-  (e self.Left % self.Right)          ;; BinMod
+Comparison produces `Bool`:
 
-Comparison:
-  self.Score == other.Score           ;; BinEq
-  self.Score != other.Score           ;; BinNotEq
-  self.Score <  other.Score           ;; BinLt
-  self.Score >  other.Score           ;; BinGt
-  self.Score <= other.Score           ;; BinLtEq
-  self.Score >= other.Score           ;; BinGtEq
+```aski
+self.Score == other.Score           # BinEq
+self.Score != other.Score           # BinNotEq
+self.Score <  other.Score           # BinLt
+self.Score >  other.Score           # BinGt
+self.Score <= other.Score           # BinLtEq
+self.Score >= other.Score           # BinGtEq
+```
 
 Logical:
-  (self.Active && other.Active) || self.Override
 
-Bitwise operations (S5 — MERGED 2026-04-21) ---------------
+```aski
+(self.Active && other.Active) || self.Override
+```
 
-Zero grammar change — bitwise ops are stdlib methods on the
-`BitOps` trait. Reusing `&` or `|` as bitwise operators would
-collide with borrow and logical-or.
+## Bitwise operations
 
-  (flags    Permission:Read.bitOr(Permission:Write))
-  (readable flags.bitAnd(Permission:Read).ne(0))
-  (shifted  byte.shiftLeft(4))
-  (masked   word.bitAnd(0xFF))
-  (inverted word.bitNot)
+Bitwise ops are stdlib methods, not operators. Reusing `&` or `|` as bitwise would collide with borrow and logical-or.
 
-Stdlib trait (in stdlib under BitOps.trait):
+```aski
+(flags    Permission:Read.bitOr(Permission:Write))
+(readable flags.bitAnd(Permission:Read).ne(0))
+(shifted  byte.shiftLeft(4))
+(masked   word.bitAnd(0xFF))
+(inverted word.bitNot)
+```
 
-  ;; BitOps.trait file content:
-  (bitAnd    &self &other Self Self)
-  (bitOr     &self &other Self Self)
-  (bitXor    &self &other Self Self)
-  (shiftLeft  &self &bits U8 Self)
-  (shiftRight &self &bits U8 Self)
-  (bitNot    &self Self)
+Stdlib trait:
 
-Impls on U8 / U16 / U32 / U64 / I8 / I16 / I32 / I64.
+```aski
+# BitOps.trait
+(bitAnd     &self &other Self Self)
+(bitOr      &self &other Self Self)
+(bitXor     &self &other Self Self)
+(shiftLeft  &self &bits U8 Self)
+(shiftRight &self &bits U8 Self)
+(bitNot     &self Self)
+```
 
-;; MERGED FROM S5 — see gap-analysis.md §S5 and
-;; bridge/clear.md §S5.
+Impls on `U8`–`U64`, `I8`–`I64`.
 
-## UNARY OPERATORS (C6 — landed 2026-04-20)
+## Unary operators
 
-Unary `-` and `!` landed in v0.21. Both appear as prefixes on
-expressions.
+```aski
+(offset I32 -42)                    # literal negation
+(neg -x)                            # on a local
+(shift -self.Count)                 # on a field access
 
-Negation (-):
-  (offset I32 -42)                    ;; literal negation
-  (neg -x)                            ;; on a local
-  (shift -self.Count)                 ;; on a field access
+(valid !self.Failed)
+(| !self.Ready
+  (true)  ^Option:None
+  (false) Unit
+|)
+```
 
-Logical NOT (!):
-  (valid !self.Failed)
-  (| !self.Ready
-    ( True )  ^Option:None
-    ( False ) Unit
-  |)
+## Deref
 
-Unary deref `*` (U1 — ACCEPTED 2026-04-21) --------------------
+`*x` dispatches to the stdlib `Deref` trait's method.
 
-`*x` dispatches to the stdlib `Deref` trait's method. Methods-
-over-operators direction: the operator is surface, the semantics
-are a trait method.
+```aski
+(derefed *boxedValue)                # dispatches to Box:Deref:deref
+(payload *self.Inner)                # deref a field
+```
 
-  (derefed *boxedValue)                ;; unary * on a Box,
-                                       ;; dispatches to Box:Deref:deref
-  (payload *self.Inner)                ;; deref a field
+Deref applies to smart-pointer types (`Box`, `Rc`, future `Arc`) — any type with a `Deref` impl. Separate from raw pointers (which are not in v0.21).
 
-Grammar (ExprUnary dialect):
-  #UnaryDeref#_*_ <ExprUnary>
+## Range expressions
 
-Separate from raw pointers (which stay Unspec'd). Deref applies
-to smart-pointer types (Box, Rc, future Arc) — any type with a
-Deref impl.
-;; MERGED FROM U1 — ACCEPTED 2026-04-21 (see gap-analysis.md §U1)
+```aski
+0..10                               # half-open
+0..=10                              # inclusive
 
-## METHODS-OVER-OPERATORS RUBRIC (U17 — PICK-AND-MERGE)
+{| 0..10.step
+  [StdOut:print(step)]
+|}
 
-S5 bitwise, S7 cast, and N3 assignment all land as stdlib
-methods rather than operator syntax. That is consistent with
-a proposed standing rubric rule:
+(window self.Cursor..self.Cursor + 16)
+```
 
-  "Methods over operators for bit ops, casts, assignment, and
-   similar. Stdlib traits, not new syntax."
+## Dyn trait types
 
-Under that rubric, future operator-family additions default to
-stdlib trait methods unless Li specifically carves out syntax.
+`?{Trait}` at type position marks "unknown concrete type that satisfies Trait." Requires a pointer carrier (`&`, `~&`, `Box`, …).
 
-;; PICK-AND-MERGE — Li to confirm this as standing rule; see
-;; gap-analysis.md §U17.
+```aski
+(emit ~&writer {?Writer} :msg String [~writer.write(msg)])
+(nextToken ~&src {?Iterator Token} {Option Token}
+  [~src.next])
+(boxed {Box {?Callable U32 U32}} ...)
+```
 
-## DYN SIGIL (U14 — PICK-AND-MERGE; semantics in outliers)
+### Types vs values — the key rule
 
-Syntactic shape (from bridge/small-decisions.md §S6):
-`?{Trait}` at type position marks "unknown concrete type that
-satisfies Trait."
+**Sema can reference dyn types in signatures; sema cannot store dyn values.**
 
-  (emit ~&writer {?Writer} :msg String [~writer.write(msg)])
-  (nextToken ~&src {?Iterator Token} {Option Token}
-    [~src.next])
-  (boxed {Box {?Callable U32 U32}} …)
+A dyn type in a signature is a type expression — sema is describing code, and signatures are metadata about what exists. No fat pointer is involved.
 
-Grammar:
+A dyn *value* (a fat pointer `(data_ptr, vtable_ptr)`) is process-local — the vtable pointer has no meaning across serialization. `veric` enforces that no field of a serialized type has a `?{Trait}` type.
 
-  ;; Type.synth — add DynType
-  #DynType#_?_{ <TypeApplication> }
+This is the ordinary distinction between *talking about* something and *storing an instance of* it. Dyn dispatch works normally at runtime (vtable-pointer representation); dyn values just cannot cross the sema-byte boundary. Use cases:
 
-Alternatives that were considered: `&{Trait}` (conflicts with
-borrow), `{^Trait}` (conflicts with early return), a new
-delimiter pair (all six allocated).
+- **OK**: `?{Trait}` in function parameter types, return types, local variable types.
+- **Rejected by veric**: `?{Trait}` as a field of a struct/enum that gets serialized.
 
-;; PICK-AND-MERGE — Li to confirm sigil `?{Trait}`; semantic
-;; design (S6 — vtable vs discriminant vs no-dyn vs transient-
-;; only) in outliers-v021.md.
+### What dyn is for
 
-## CLOSURES — Position A (S4 — PICK-AND-MERGE; A merged, B/C in outliers)
+Same problems as Rust: open-world heterogeneity.
 
-Position A (named-type impls of Callable) is the zero-grammar-
-change baseline. A closure in Rust is an ad-hoc named struct
-in aski, with an explicit impl of the `Callable` trait.
+- Heterogeneous collections (`Vec` of different concrete types).
+- Functions returning different concrete types from different branches.
+- Recursive trees where nodes are any impl of a trait.
+- Callback / event-handler storage where caller type is varied.
 
-Filesystem path:
-  Increment.struct
+Alternatives where applicable: generics + trait bounds, or an enum of specific types. Dyn is only needed when the set of concrete types is open.
+
+### Object safety
+
+Standard object-safety constraints apply (no methods returning `Self`, no generic method params without `Sized` bounds, etc.). `veric` checks.
+
+## Closures
+
+Closures are named types that impl the stdlib `Callable` trait. Zero grammar change — a closure in Rust is an ad-hoc named struct in aski, with an explicit `Callable` impl.
+
+```
+Increment.struct
+```
 
 ```aski
 (@Amount U32)
+```
 
 ```
-Filesystem path:
-  Callable[U32,U32]~Increment.impl
-
-File content:
+Callable[U32,U32]~Increment.impl
+```
 
 ```aski
 (call &self &input U32 U32 [input + self.Amount])
-
 ```
-At a call site (inside some method body):
 
-  (items self.Nums.map(&Increment {Amount 1}))
+At a call site:
 
-Stdlib trait (reference):
+```aski
+(items self.Nums.map(&Increment {Amount 1}))
+```
 
-  ;; Callable.trait file content:
-  {$Input $Output}
-  (call &self $Input $Output)
+Stdlib trait:
 
-;; PICK-AND-MERGE — Position A merged; Position B (inline
-;; closure sugar desugaring to synthetic types) and Position C
-;; (explicit-capture shorthand) remain OPEN. See outliers-v021.md
-;; and bridge/big-decisions.md §S4.
+```aski
+# Callable.trait
+{$Input $Output}
+(call &self $Input $Output)
+```
 
-## LITERAL PATTERN SCOPE (C3 — PICK-AND-MERGE)
+Inline closure sugar (`|x| body`) is not currently in v0.21 — see [16-open-questions §Closure sugar](16-open-questions.md#closure-sugar).
 
-LiteralPattern covers Int / Float / Str at match-arm position.
-Proposed scope:
+## Literal patterns
 
-  (| code
-    ( 0 )    "pending"                 ;; IntMatch
-    ( 200 )  "ok"
-    ( 3.14 ) "tau-adjacent"            ;; FloatMatch
-    ( "hello" ) "greeting"             ;; StrMatch
-    ( _ )    "other"
-  |)
+LiteralPattern covers `Int`, `Float`, `Str`, and `Bool` at match-arm position.
 
-Bool is NOT a LiteralPattern — matched via variant patterns
-`( True )` / `( False )` on a Bool variant-enum. Char is NOT
-a LiteralPattern — matched via path patterns on the Char
-library (e.g., `( Char:Upper:A )`).
+```aski
+(| code
+  (0)       "pending"                # IntMatch
+  (200)     "ok"
+  (3.14)    "tau-adjacent"           # FloatMatch
+  ("hello") "greeting"               # StrMatch
+  (true)    "on"                     # BoolMatch
+  (false)   "off"
+  (_)       "other"
+|)
+```
 
-Grammar:
-  ;; Pattern.synth — add LiteralPattern, remove StringMatch (subsumed)
-  #WildcardPattern#_
-  #VariantBind#:Variant @binding
-  #VariantAlt#[ +:Variant ]
-  #VariantMatch#:Variant
-  #LiteralPattern#:Literal    ;; covers Int, Float, Str
+`Char` is not a LiteralPattern — matched via path patterns on the Char library: `(Char:Upper:A)`.
 
-;; PICK-AND-MERGE — Li to confirm scope excludes Bool (via
-;; variants) and Char (via U16 library). See gap-analysis.md
-;; §C3 and bridge/clear.md §C3.
+## Postfix operators
 
-## POSTFIX OPERATORS — field access, method call, try-unwrap
+Unchanged from the body grammar. Left-to-right chaining.
 
-Unchanged from v0.20. Left-to-right chaining.
+```aski
+self.stage1(input).stage2.stage3(self.Config)
+```
 
-  self.stage1(input).stage2.stage3(self.Config)
+| Form | Meaning |
+|---|---|
+| `expr.Field` | field access (Pascal suffix) |
+| `expr.method(args)` | method call (camel suffix) |
+| `expr?` | try-unwrap (on `Result`/`Option`) |
 
-`expr.Field` — FieldAccess (Pascal suffix)
-`expr.method(args)` — MethodCall (camel suffix)
-`expr?` — TryUnwrap (on Result/Option)
+## Expression atoms
 
-## EXPRESSION ATOMS
-
-Every atom form from v0.20 survives.
-
-  &instance              BorrowExpr (shared borrow of a local)
-  ~&instance             MutBorrowExpr
-  self                   SelfRef
-  :instance              InstanceRef (bare local)
-  :Type:method(args)     PathCall
-  :Type:Variant          PathVariant
-  :Variant               BareVariant
-  :Literal               LiteralExpr
-  [ <Body> ]             InlineEval (block as expression)
-  (| <Match> |)          MatchExpr
-  [| <Loop> |]           LoopExpr
-  {| <Iter> [body] |}    IterExpr
-  { :Type +(:Field <Expr>) }  StructExpr
+| Form | Name |
+|---|---|
+| `&instance` | BorrowExpr |
+| `~&instance` | MutBorrowExpr |
+| `self` | SelfRef |
+| `:instance` | InstanceRef |
+| `:Type:method(args)` | PathCall |
+| `:Type:Variant` | PathVariant |
+| `:Variant` | BareVariant |
+| `42`, `"hi"`, `true` | LiteralExpr |
+| `[ <Body> ]` | InlineEval (block as expression) |
+| `(\| <Match> \|)` | MatchExpr |
+| `[\| <Loop> \|]` | LoopExpr |
+| `{\| <Iter> [body] \|}` | IterExpr |
+| `{ :Type +(:Field <Expr>) }` | StructExpr |

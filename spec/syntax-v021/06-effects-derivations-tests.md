@@ -1,130 +1,98 @@
-## EFFECTS — Trait[Args]~Target.effect files
+# Effects, derivations, tests, benches
 
-Filename grammar: same as .impl but with `.effect` extension.
-Content grammar: identical to .impl.
+## Effects
 
-The ONLY semantic difference: an impl in a `.effect` file
-is allowed to cross the I/O boundary (read files, call RFI,
-touch external state). A file in `.impl` cannot. veric
-enforces.
+Effect impls live in `[_]TraitPart~TargetPart.effect` files. Filename and content grammar are identical to [`.impl`](05-impls.md).
 
-A library that never imports a `.effect` file (transitively)
-is provably pure — its effect closure is empty.
+**The only semantic difference:** an impl in a `.effect` file is allowed to cross the I/O boundary (read files, call RFI, touch external state). A file in `.impl` cannot. `veric` enforces.
 
-FileReader effect ------------------------------------------
+A library that never imports a `.effect` file (transitively) is provably pure — its effect closure is empty.
 
-Filesystem path:
-  FileReader~LocalFs.effect
+### FileReader effect
 
-File content:
+```
+FileReader~LocalFs.effect
+```
 
 ```aski
 (readAll &self &path Path {Result String Error} [
   Rfi:FileSystem:readToString(path)
 ])
+```
+
+```rust
+impl FileReader for LocalFs {
+    fn read_all(&self, path: &Path) -> Result<String, Error> {
+        std::fs::read_to_string(path)
+    }
+}
+```
+
+`Rfi:FileSystem:readToString` is a call into the RFI surface (see [13-rfi-exec](13-rfi-exec.md)). Anyone who transitively depends on `FileReader~LocalFs.effect` has `FileSystem` in their effect closure.
+
+### Clock effect
 
 ```
-Rust equivalent:
-  impl FileReader for LocalFs {
-      fn read_all(&self, path: &Path) -> Result<String, Error> {
-          std::fs::read_to_string(path)
-      }
-  }
-
-`Rfi:FileSystem:readToString` is a call into the RFI surface
-(see `.rfi` files below). The effect is tracked: anyone who
-transitively depends on `FileReader~LocalFs.effect` has
-`FileSystem` in their effect closure.
-
-Clock effect -----------------------------------------------
-
-Filesystem path:
-  Clock~Utc.effect
-
-File content:
+Clock~Utc.effect
+```
 
 ```aski
 (now &self Time [
   Rfi:Time:systemNowUtc
 ])
+```
+
+### Composite effect (delegates to other effects)
 
 ```
-Rust equivalent:
-  impl Clock for Utc { fn now(&self) -> Time { ... } }
-
-Logger effect (composite — delegates to other effects) ----
-
-Filesystem path:
-  Logger~Multi.effect
-
-File content:
+Logger~Multi.effect
+```
 
 ```aski
 (log ~&self &message String [
   [~Stderr:write(message)]
   [~LogFile:append(message)]
 ])
+```
+
+### Platform-scoped effects
+
+The `.<platform>.effect` middle segment carries the build tag. Build selection links the matching platform file.
 
 ```
-Rust equivalent:
-  impl Logger for Multi {
-      fn log(&mut self, message: &str) {
-          stderr().write(message);
-          log_file().append(message);
-      }
-  }
-
-Platform-scoped effect (capability system) -----------------
-
-Filesystem path:
-  Clock~System.native.effect
-  Clock~System.browser.effect
-  Clock~System.wasm.effect
-
-Content of Clock~System.native.effect:
+Clock~System.native.effect
+Clock~System.browser.effect
+Clock~System.wasm.effect
+```
 
 ```aski
+# Clock~System.native.effect
 (now &self Time [ Rfi:PosixTime:gettimeofday ])
-
 ```
-Content of Clock~System.browser.effect:
 
 ```aski
+# Clock~System.browser.effect
 (now &self Time [ Rfi:JsDate:now ])
-
 ```
-Content of Clock~System.wasm.effect:
 
 ```aski
+# Clock~System.wasm.effect
 (now &self Time [ Rfi:WasiClock:realtime ])
+```
+
+## Derivations
+
+Derivations live in `[_]Name.derivation` files.
+
+**Content grammar:** `:TraitName <TypePattern> *<TraitImplItem>`.
+
+A derivation is a rule: *"for every type matching this pattern, synthesize this impl."* `veric` applies the rule at link time, producing synthetic `.impl` equivalents for each matching type. Hand-written `.impl` files for a given (Trait, Target) always win (most-specific wins).
+
+### Debug for any struct whose fields all impl Debug
 
 ```
-The `<platform>` segment between the stem and extension
-carries the build tag. Build selection chooses which set
-of platform-tagged effects to link. Prior per-concern
-effects-and-platforms proposal was retired 2026-04-21; see
-`decomposition.md` for the II-L derivation that subsumed it.
-
-## DERIVATIONS — Name.derivation files
-
-Filename grammar:
-  [_]DerivationName.derivation
-
-Content grammar:
-  :TraitName <TypePattern> *<TraitImplItem>
-
-A derivation is a rule: "for every type matching this pattern,
-synthesize this impl." veric applies the rule at link time,
-producing synthetic `.impl` equivalents for each matching type.
-Hand-written `.impl` files for a given (Trait, Target) always
-win over derivation output (most-specific wins).
-
-Debug derivation for any struct whose fields all impl Debug
-
-Filesystem path:
-  DebugStruct.derivation
-
-File content:
+DebugStruct.derivation
+```
 
 ```aski
 :Debug {StructOf {$Struct} {AllFields Debug}}
@@ -140,25 +108,15 @@ File content:
   [~out.append("}")]
   out
 ])
+```
+
+`StructOf` / `AllFields` are pattern-matchers on type shape, provided by the derivation stdlib.
+
+### Clone for any enum
 
 ```
-Rust equivalent:
-  // #[derive(Debug)] on any struct
-  impl Debug for <any struct whose fields all impl Debug> {
-      fn debug(&self) -> String { ... }
-  }
-
-`StructOf` / `AllFields` are pattern-matchers on type shape,
-provided by the derivation stdlib. (Earlier per-concern
-derivations-and-testing proposal was retired 2026-04-21; the
-full pattern language remains to be specified within v0.21.)
-
-Clone derivation for enums ---------------------------------
-
-Filesystem path:
-  CloneEnum.derivation
-
-File content:
+CloneEnum.derivation
+```
 
 ```aski
 :Clone {EnumOf {$Enum} {AllVariants Clone}}
@@ -169,14 +127,13 @@ File content:
     |}
   |)
 ])
+```
+
+### JSON serialize for structs
 
 ```
-JSON serialization derivation for structs ------------------
-
-Filesystem path:
-  JsonSerializeStruct.derivation
-
-File content:
+JsonSerializeStruct.derivation
+```
 
 ```aski
 :JsonSerialize {StructOf {$Struct} {AllFields JsonSerialize}}
@@ -187,21 +144,15 @@ File content:
   |}
   Json:Object(obj)
 ])
-
 ```
 
-## TEST-IMPLS — Trait[Args]~Target.test-impl files
+## Test impls
 
-Filename grammar: same as `.impl` with `.test-impl` extension.
-Content grammar: identical to `.impl`.
+Test impls live in `[_]TraitPart~TargetPart.test-impl` files. Filename and content grammar identical to `.impl`. Linked only into test builds; replaces production impls for the same (Trait, Target) pair during test runs.
 
-Only linked into test builds. Replaces production impls for
-the same (Trait, Target) pair during test runs.
-
-Filesystem path:
-  Storage~Database.test-impl
-
-File content:
+```
+Storage~Database.test-impl
+```
 
 ```aski
 (read &self &key String {Option String} [
@@ -210,11 +161,10 @@ File content:
 (write ~&self &key String &value String [
   Unit
 ])
-
 ```
-Rust equivalent: what you'd write in a `#[cfg(test)]` mod
-with a mock Database. aski's version is a separate file,
-linked by the test build. No conditional compilation in
-production source.
 
-Bench-impls follow the same pattern with `.bench-impl`.
+No conditional compilation in production source — the test impl is a separate file wired in by the test build.
+
+## Bench impls
+
+`.bench-impl` follows the same pattern as `.test-impl`, linked only into benchmark builds.

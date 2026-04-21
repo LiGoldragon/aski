@@ -49,8 +49,7 @@ rkyv-typed-data out.
 aski has one surface per kind of root object. Each extension is
 an entry point the dispatcher uses; each surface is a body
 grammar for that kind. See
-[decomposition.md](decomposition.md) for the II-L derivation
-and [syntax-v021.md](syntax-v021.md) for the canonical spec.
+[syntax-v021.md](syntax-v021.md) for the canonical spec.
 
 - `.core` — pure type definitions (for corec)
 - `.synth` — grammar self-description (for tooling)

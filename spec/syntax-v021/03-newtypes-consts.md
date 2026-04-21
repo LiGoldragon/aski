@@ -1,180 +1,179 @@
-## NEWTYPES — Name.newtype files
+# Newtypes and consts
 
-Filename grammar:
-  [_]NewtypeName.newtype
+## Newtypes
 
-Content grammar:
-  ?<GenericSlot> <Type>
+Newtypes live in `[_]Name.newtype` files.
 
-The wrapped type is a single Type expression. Transparency
-(whether the wrapped value is publicly readable) is marked
-with `@` on the wrapped type.
+**Content grammar:** `?<GenericSlot> <Type>` — the wrapped type is a single type expression.
 
-Transparent newtype (wrapped value public) -----------------
+Transparency — whether the wrapped value is publicly readable — is marked with `@` on the wrapped type.
 
-Filesystem path:
-  Counter.newtype
+### Transparent newtype (wrapped value public)
+
+```
+Counter.newtype
+```
 
 ```aski
 @U32
+```
+
+```rust
+pub struct Counter(pub u32);
+```
+
+### Opaque newtype (wrapped value private)
 
 ```
-Rust equivalent:
-  pub struct Counter(pub u32);
-
-`@U32` = wrapped type is public. Consumers can read the
-underlying U32.
-
-Opaque newtype (wrapped value private) ---------------------
-
-Filesystem path:
-  OpaqueCount.newtype
+OpaqueCount.newtype
+```
 
 ```aski
 U32
+```
+
+```rust
+pub struct OpaqueCount(u32);
+```
+
+### Private newtype
 
 ```
-Rust equivalent:
-  pub struct OpaqueCount(u32);
-
-Private newtype --------------------------------------------
-
-Filesystem path:
-  _InternalCount.newtype
+_InternalCount.newtype
+```
 
 ```aski
 @U32
+```
+
+```rust
+struct InternalCount(pub u32);
+```
+
+The leading `_` on the filename makes the newtype private to its module. The wrapped `U32` remains publicly readable *within* the module because `@` marks transparency at the wrapped-type level.
+
+### Generic newtype
 
 ```
-Rust equivalent:
-  struct InternalCount(pub u32);
-
-Leading `_` on filename = newtype itself is private to the
-module. The wrapped U32 is publicly readable WITHIN the module
-(because `@` marks transparency at the wrapped-type level).
-
-Generic newtype --------------------------------------------
-
-Filesystem path:
-  Items.newtype
+Items.newtype
+```
 
 ```aski
 {$Value}
 @{Vec $Value}
+```
+
+```rust
+pub struct Items<T>(pub Vec<T>);
+```
+
+### Newtypes for physical units
 
 ```
-Rust equivalent:
-  pub struct Items<T>(pub Vec<T>);
-
-Generic slot, then the wrapped type expression.
-
-Newtype for a physical unit --------------------------------
-
-Filesystem path:
-  Seconds.newtype
+Seconds.newtype
+```
 
 ```aski
 @F64
+```
 
 ```
-Filesystem path:
-  Meters.newtype
+Meters.newtype
+```
 
 ```aski
 @F64
+```
+
+```rust
+pub struct Seconds(pub f64);
+pub struct Meters(pub f64);
+```
+
+Two distinct types. No accidental substitution across units.
+
+## Consts
+
+Consts live in `[_]Name.const` files.
+
+**Content grammar:** `<Type> <Expr>` — the file holds the const's type followed by its value. The RHS is a full expression; `veric` const-evals at build time.
+
+### Literal consts
 
 ```
-Rust equivalent:
-  pub struct Seconds(pub f64);
-  pub struct Meters(pub f64);
-
-Two distinct types, each wrapping F64. No accidental
-substitution across units.
-
-## CONSTS — Name.const files
-
-Filename grammar:
-  [_]ConstName.const
-
-Content grammar:
-  <Type> <LiteralOrExpr>
-
-The file holds the const's type followed by its value. The
-RHS can be a literal (v0.20) or an expression (S8 — proposed
-in v0.21 but currently literal-only).
-
-Literal const ----------------------------------------------
-
-Filesystem path:
-  MaxSigns.const
+MaxSigns.const
+```
 
 ```aski
 U32 12
+```
+
+```rust
+pub const MAX_SIGNS: u32 = 12;
+```
 
 ```
-Rust equivalent:
-  pub const MAX_SIGNS: u32 = 12;
-
-Filesystem path:
-  Pi.const
+Pi.const
+```
 
 ```aski
 F64 3.14159
+```
 
 ```
-Filesystem path:
-  Greeting.const
+Greeting.const
+```
 
 ```aski
 String "hello"
+```
+
+### Private const
 
 ```
-Private const ----------------------------------------------
-
-Filesystem path:
-  _InternalTuningFactor.const
+_InternalTuningFactor.const
+```
 
 ```aski
 F64 1.618
+```
+
+```rust
+const INTERNAL_TUNING_FACTOR: f64 = 1.618;
+```
+
+### Const expressions
+
+The RHS can reference prior consts and use arithmetic.
 
 ```
-Rust equivalent:
-  const INTERNAL_TUNING_FACTOR: f64 = 1.618;
-
-Const expression (S8 — MERGED 2026-04-21) ------------------
-
-The RHS of a const file is an <Expr>, not only a <Literal>.
-veric const-evals the expression at build time. Operands must
-be prior consts or literals in scope.
-
-Filesystem path:
-  MaxUsers.const
+MaxUsers.const
+```
 
 ```aski
 U32 100
+```
 
 ```
-Filesystem path:
-  MaxSessions.const
+MaxSessions.const
+```
 
 ```aski
 U32 MaxUsers * 4
+```
 
 ```
-Filesystem path:
-  BufferSize.const
+BufferSize.const
+```
 
 ```aski
 U32 {(MaxUsers + MaxSessions) * 8}
-
 ```
-Rust equivalent:
-  pub const MAX_USERS: u32 = 100;
-  pub const MAX_SESSIONS: u32 = MAX_USERS * 4;
-  pub const BUFFER_SIZE: u32 = (MAX_USERS + MAX_SESSIONS) * 8;
 
-Grammar change: Root.synth Const's RHS changes from
-`@Literal` to `<Expr>`.
+```rust
+pub const MAX_USERS: u32 = 100;
+pub const MAX_SESSIONS: u32 = MAX_USERS * 4;
+pub const BUFFER_SIZE: u32 = (MAX_USERS + MAX_SESSIONS) * 8;
+```
 
-;; MERGED FROM S8 — see gap-analysis.md §S8 and
-;; bridge/clear.md §S8.
+Operands must be prior consts or literals in scope. `veric` validates the const-eval.

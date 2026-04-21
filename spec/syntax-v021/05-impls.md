@@ -1,363 +1,299 @@
-## IMPLS — Trait[Args]~Target.impl files
+# Impls
 
-Filename grammar (impl filename carries trait + target):
+Trait impls live in `[_]TraitPart~TargetPart.impl` files. The filename encodes the trait + target; the body is the impl body only.
 
-  [_]TraitPart~TargetPart.impl
+## Filename grammar
 
-where TraitPart is:
-  Trait                           — bare trait name
-  Trait[Arg,Arg,...]              — trait with type arguments
-  Trait@Module                    — trait qualified with module
-  Trait@A@B                       — chained module qualifier (A::B::Trait)
+```
+[_]TraitPart~TargetPart.impl
+```
 
-and TargetPart is:
-  Target                          — concrete type
-  Target[Arg,...]                 — applied concrete type (head only)
-  Target@Module                   — cross-module target
-  $                               — blanket (any type)
-  $(Bound)                        — bounded blanket (any type with Bound)
-  $(Bound+Bound+...)              — multi-bound blanket
+**TraitPart:**
 
-Content grammar (the ImplBody):
-  ?<GenericSlot>
-  *<TraitImplItem>
+| Form | Meaning |
+|---|---|
+| `Trait` | bare trait name |
+| `Trait[Arg,Arg,...]` | trait with type arguments |
+| `Trait@Module` | qualified with module |
+| `Trait@A@B` | chained qualifier (`A::B::Trait`) |
 
-TraitImplItem forms:
-  (@AssocName Type)               — associated type binding (Pascal)
-  {| @AssocName Type Value |}     — associated const binding
-  (camelName ...signature... body) — method body
+**TargetPart:**
 
-NOTE on filename separators:
-  `~` separates trait and target at the top level.
-  `[` and `]` open and close a trait-or-target argument list.
-  `,` separates items inside `[...]`.
-  `@` qualifies a name with a module path.
-  `$` alone at target position = blanket.
-  `$(...)` = bounded blanket; `+` separates bounds.
+| Form | Meaning |
+|---|---|
+| `Target` | concrete type |
+| `Target[Arg,...]` | applied concrete type |
+| `Target@Module` | cross-module target |
+| `$` | blanket (any type) |
+| `$(Bound)` | bounded blanket |
+| `$(Bound+Bound)` | multi-bound blanket |
 
-The impl name (what v0.20 carried as `@ImplName` at position 0
-inside the root `[...]`) now lives in the filename STEM. Since
-each impl has its trait+target encoded, the stem is
-human-readable.
+**Separators:** `~` = trait/target separator. `[...]` = argument list (comma-separated). `@` = module qualifier. `$` = blanket target.
 
-A PURE-STEM convention also works for single-impl-per-pair
-projects — the filename IS the trait+target pair, unambiguously.
-Multi-impl projects need disambiguation: see NAMED IMPLS below.
+## Content grammar
 
-Simplest impl (single impl for the pair) -------------------
+```
+?<GenericSlot>
+*<TraitImplItem>
+```
 
-Filesystem path:
-  Describe~Element.impl
+**TraitImplItem forms:**
 
-File content:
+| Form | Meaning |
+|---|---|
+| `(AssocName Type)` | associated type binding |
+| `{\| @AssocName Type Value \|}` | associated const binding |
+| `(camelName ...body)` | method body |
+
+## Simplest impl
+
+```
+Describe~Element.impl
+```
 
 ```aski
 (describe &self Quality (|
   ([Fire Air])      Active
   ([Earth Water])   Receptive
 |))
+```
+
+```rust
+impl Describe for Element {
+    fn describe(&self) -> Quality {
+        match self {
+            Element::Fire | Element::Air => Quality::Active,
+            Element::Earth | Element::Water => Quality::Receptive,
+        }
+    }
+}
+```
+
+## Impl with associated-type binding and a method
 
 ```
-Rust equivalent:
-  impl Describe for Element {
-      fn describe(&self) -> Quality {
-          match self {
-              Element::Fire | Element::Air => Quality::Active,
-              Element::Earth | Element::Water => Quality::Receptive,
-          }
-      }
-  }
-
-v0.20: @[Describe Element [ (describe &self Quality (|...|)) ]]
-v0.21: the Trait, Target, visibility, and outer `[` all move
-to the filename. The file's content is just the impl body.
-
-Impl with associated-type binding + method ----------------
-
-Filesystem path:
-  Iterator~TokenReader.impl
-
-File content:
+Iterator~TokenReader.impl
+```
 
 ```aski
 (Item Token)
 (next ~&self {Option Token} [
   (| self.cursor.geq(self.buffer.len)
-    ( True )  Option:None
-    ( False ) [
+    (true)  Option:None
+    (false) [
       (token self.buffer.at(self.cursor).clone)
       ~self.cursor.addAssign(1)
       Option:Some(token)
     ]
   |)
 ])
+```
+
+```rust
+impl Iterator for TokenReader {
+    type Item = Token;
+    fn next(&mut self) -> Option<Token> {
+        if self.cursor >= self.buffer.len() { None }
+        else {
+            let token = self.buffer[self.cursor].clone();
+            self.cursor += 1;
+            Some(token)
+        }
+    }
+}
+```
+
+## Generic impl
 
 ```
-Rust equivalent:
-  impl Iterator for TokenReader {
-      type Item = Token;
-      fn next(&mut self) -> Option<Token> {
-          if self.cursor >= self.buffer.len() { None }
-          else {
-              let token = self.buffer[self.cursor].clone();
-              self.cursor += 1;
-              Some(token)
-          }
-      }
-  }
-
-Generic impl ------------------------------------------------
-
-Filesystem path:
-  Container~RingBuffer.impl
-
-File content:
+Container~RingBuffer.impl
+```
 
 ```aski
 {$Value{Clone}}
 (push ~&self :value $Value [
   ~self.buffer.append(value)
 ])
+```
+
+```rust
+impl<T: Clone> Container<T> for RingBuffer<T> {
+    fn push(&mut self, value: T) {
+        self.buffer.push(value);
+    }
+}
+```
+
+The body's generic slot binds `$Value`; both `Container<$Value>` and `RingBuffer<$Value>` share the parameter. The filename is the bare-head form `Container~RingBuffer.impl`; argument application happens in the body.
+
+## Trait type-argument in the filename
 
 ```
-Rust equivalent:
-  impl<T: Clone> Container<T> for RingBuffer<T> {
-      fn push(&mut self, value: T) {
-          self.buffer.push(value);
-      }
-  }
-
-The generic slot at the top of the body introduces $Value.
-Both Trait (as Container<$Value>) and Target (RingBuffer<$Value>)
-share the parameter. The filename is the bare-head form
-`Container~RingBuffer.impl`; argument application happens in
-the body's generic slot.
-
-Impl with explicit trait type-argument in filename ---------
-
-Filesystem path:
-  Iterator[Token]~TokenReader.impl
-
-File content:
+Iterator[Token]~TokenReader.impl
+```
 
 ```aski
 (Item Token)
 (next ~&self {Option Token} [ ... ])
-
 ```
-This form appears when the trait takes type arguments and you
-want that visible in the path. The `[Token]` after `Iterator`
-is filename-syntax for the trait's type argument list. Inside
-the body, the impl works normally.
 
 Two equivalent encodings coexist:
-  Iterator[Token]~TokenReader.impl   ;; args in the filename
-  Iterator~TokenReader.impl          ;; body supplies Item=Token via (Item Token)
 
-Pick one per project. The shorter form is more common; the
-longer form is self-documenting for readers scanning the
-filesystem.
+- `Iterator[Token]~TokenReader.impl` — trait arg in the filename
+- `Iterator~TokenReader.impl` — body supplies `Item=Token` via `(Item Token)`
 
-Trait with multiple type arguments -------------------------
+The shorter form is more common; the longer form is self-documenting when scanning the filesystem.
 
-Filesystem path:
-  From[String]~Token.impl
+## Trait with multiple type arguments
 
-File content:
+```
+From[String]~Token.impl
+```
 
 ```aski
 (from :source String Token [
   Token:Ident(source)
 ])
+```
+
+```rust
+impl From<String> for Token {
+    fn from(source: String) -> Token {
+        Token::Ident(source)
+    }
+}
+```
+
+Multi-arg example: `Translator[Input,Output]~Pipeline.impl`.
+
+## Blanket impl
 
 ```
-Rust equivalent:
-  impl From<String> for Token {
-      fn from(source: String) -> Token {
-          Token::Ident(source)
-      }
-  }
-
-Filesystem path for a multi-arg trait:
-  Translator[Input,Output]~Pipeline.impl
-
-Blanket impl -----------------------------------------------
-
-Filesystem path:
-  Describe~$.impl
-
-File content:
+Describe~$.impl
+```
 
 ```aski
 {$Any{Debug}}
 (describe &self Quality [ Active ])
+```
+
+```rust
+impl<T: Debug> Describe for T {
+    fn describe(&self) -> Quality { Active }
+}
+```
+
+`$` alone at target position = blanket. The generic slot in the body binds the parameter and its bound.
+
+### Bounded blanket via filename
 
 ```
-Rust equivalent:
-  impl<T: Debug> Describe for T {
-      fn describe(&self) -> Quality { Active }
-  }
-
-`$` alone at target position = blanket. The generic slot in
-the body binds the parameter and its bound.
-
-Bounded blanket via filename (more concise) ----------------
-
-Filesystem path:
-  Describe~$(Debug).impl
-
-File content:
+Describe~$(Debug).impl
+```
 
 ```aski
 (describe &self Quality [ Active ])
+```
+
+Identical semantics to the previous example, but the bound lives in the filename rather than the body.
+
+### Multi-bound blanket
 
 ```
-Rust equivalent: identical to the previous example, but the
-bound lives in the filename rather than in a body-level
-generic slot. Choose whichever reads clearer for the project.
-
-Multi-bound blanket ----------------------------------------
-
-Filesystem path:
-  Display~$(Clone+Debug).impl
-
-File content:
+Display~$(Clone+Debug).impl
+```
 
 ```aski
 (display &self String [ "bounded blanket Display" ])
+```
+
+```rust
+impl<T: Clone + Debug> Display for T { ... }
+```
+
+## Cross-module impls
+
+**Target in another module:**
 
 ```
-Rust equivalent:
-  impl<T: Clone + Debug> Display for T { ... }
-
-Cross-module impl (target in another module) ---------------
-
-Filesystem path:
-  Describe~Shape@shapes.impl
-
-File content:
-
-```aski
-(describe &self Quality [ Active ])
-
+Describe~Shape@shapes.impl
 ```
-Rust equivalent:
-  impl Describe for shapes::Shape { ... }
 
-`@shapes` qualifies the target's module; the filename says
-"describe for Shape, which lives in the shapes module."
+```rust
+impl Describe for shapes::Shape { ... }
+```
+
 Chainable: `Shape@shapes@drawing` = `drawing::shapes::Shape`.
 
-Cross-module trait (trait in another module) ---------------
-
-Filesystem path:
-  Describe@external~Element.impl
-
-File content:
-
-```aski
-(describe &self Quality [ Active ])
+**Trait in another module:**
 
 ```
-Rust equivalent:
-  impl external::Describe for Element { ... }
+Describe@external~Element.impl
+```
 
-Cross-module both ------------------------------------------
+```rust
+impl external::Describe for Element { ... }
+```
 
-Filesystem path:
-  Display@std~Shape@shapes.impl
+**Both:**
 
-Rust equivalent:
-  impl std::fmt::Display for shapes::Shape { ... }
+```
+Display@std~Shape@shapes.impl
+```
 
-Named impls — multiple impls per (Trait, Target) ----------
+```rust
+impl std::fmt::Display for shapes::Shape { ... }
+```
 
-Under II-L, the filename stem IS the impl name. If two impls
-of the same (Trait, Target) need to coexist, disambiguate by
-appending a hyphenated discriminator.
+## Named impls (multiple per (Trait, Target))
 
-Filesystem paths:
-  Iterator[Token]~TokenReader-fast.impl
-  Iterator[Token]~TokenReader-safe.impl
+The filename stem is the impl's identity. For multiple impls of the same (Trait, Target), append a hyphenated discriminator.
 
-Contents (each file):
-  ;; fast variant:
-  (Item Token)
-  (next ~&self {Option Token} [ ...tight-loop... ])
-
-  ;; safe variant:
-  (Item Token)
-  (next ~&self {Option Token} [ ...bounds-checked... ])
-
-Rust equivalent:
-  pub struct TokenReader { ... }
-  ;; Rust can't do this directly — one impl per (Trait, Target)
-  ;; per crate. aski allows two, selected per-scope via activation.
+```
+Iterator[Token]~TokenReader-fast.impl
+Iterator[Token]~TokenReader-safe.impl
+```
 
 Activation at a call site (inside a method body):
 
-  {Iterator[Token]~TokenReader-fast}
-  (tokens self.source.iter)
+```aski
+{Iterator[Token]~TokenReader-fast}
+(tokens self.source.iter)
+```
 
-`{...}` at statement position = impl activation directive.
-See 04-impls.md for the full scope-activation model. See
-gap-analysis.md §S6 for dyn/named-impl interactions.
+`{...}` at statement position = impl activation directive, scoped to the current block.
 
-Impl with associated const binding (S9 — MERGED 2026-04-21)
+## Impl with associated const binding
 
-Filesystem path:
-  BoundedQueue~FastQueue.impl
-
-File content:
+```
+BoundedQueue~FastQueue.impl
+```
 
 ```aski
 (Item Token)
 {| Capacity U32 256 |}
 (push ~&self :value Token [ ... ])
+```
+
+```rust
+impl BoundedQueue for FastQueue {
+    type Item = Token;
+    const CAPACITY: u32 = 256;
+    fn push(&mut self, value: Token) { ... }
+}
+```
+
+## Super-trait chain
 
 ```
-Rust equivalent:
-  impl BoundedQueue for FastQueue {
-      type Item = Token;
-      const CAPACITY: u32 = 256;
-      fn push(&mut self, value: Token) { … }
-  }
-
-TraitImplItem forms include:
-  (@AssocName Type)                ;; assoc type binding
-  {| @AssocName Type @Value |}     ;; assoc const binding
-  (camelName ...body)              ;; method body
-
-;; MERGED FROM S9 — see gap-analysis.md §S9.
-
-Full impl with every item kind (S9 assumed) ----------------
-
-;; Filesystem path:
-;;   Iterator[Token]~TokenReader.impl
-;;
-;; File content:
-;;   (Item Token)
-;;   {| BatchSize U32 256 |}
-;;   (next ~&self {Option Token} [ ... ])
-
-Impl that depends on another trait (super-trait chain) ----
-
-Filesystem path:
-  DoubleEndedIterator~TokenReader.impl
-
-File content:
+DoubleEndedIterator~TokenReader.impl
+```
 
 ```aski
 (nextBack ~&self {Option Token} [
   ;; uses self.cursor — Item inherited from Iterator super-trait
   ...
 ])
-
 ```
-Rust equivalent:
-  impl DoubleEndedIterator for TokenReader {
-      fn next_back(&mut self) -> Option<Self::Item> { ... }
-  }
 
-`Self::Item = Token` is inherited from the Iterator impl above;
-veric verifies consistency across the two impl files.
+`Self::Item = Token` is inherited from the `Iterator~TokenReader.impl` sibling; `veric` verifies consistency across impl files.

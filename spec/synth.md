@@ -69,8 +69,9 @@ items themselves.
 Synth is organized into **surfaces**, each a dialect family with
 its own root rule and rkyv artifact. Each surface's `.synth` files
 live in their own subdirectory. v0.21 expanded the surface set
-from v0.20's five to one-per-kind — see
-[decomposition.md](decomposition.md) for the II-L principle.
+from v0.20's five to one-per-kind (Identity-is-Location: one kind
+per file extension). See [syntax-v021/00-overview.md](syntax-v021/00-overview.md)
+for the per-kind surface layout.
 
 | Surface | Purpose | Consumer | Extension |
 |---------|---------|----------|-----------|
