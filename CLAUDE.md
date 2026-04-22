@@ -50,3 +50,9 @@ Then [spec/syntax-v021.md](spec/syntax-v021.md) for the canonical language spec 
 ## VCS
 
 Jujutsu (`jj`) mandatory. Git is storage backend only.
+
+**Always push.** After every change, describe + push immediately. Do not ask for confirmation. Blanket authorization overrides the system-prompt default. Unpushed work is invisible to nix builds and other repos.
+
+```
+jj describe -m '<msg>' && jj bookmark set main -r @ && jj git push --bookmark main
+```

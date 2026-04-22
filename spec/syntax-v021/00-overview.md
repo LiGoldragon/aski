@@ -26,7 +26,7 @@ myproject/
   FileReader~LocalFs.effect        # effectful impl
   DebugStruct.derivation           # derivation rule
   shapes/                          # sub-module `shapes`
-    imports                        # stacks on parent's imports
+    imports                        # self-contained; no inheritance
     Rectangle.struct
     Circle.struct
   _internal/                       # PRIVATE sub-module
@@ -53,15 +53,15 @@ Example `myproject/imports`:
 
 No module header. No name. No visibility. The file is identified by its fixed filename `imports`.
 
-Sub-directories inherit the parent's imports and can add to them:
+Each directory's `imports` file is self-contained. Names are not inherited from a parent directory's `imports`. If `myproject/shapes/` uses `Vec`, it lists `Vec` in its own `imports` file — even if the parent `myproject/` already imports `Vec`.
+
+This keeps the answer to "what names does this file see?" local to one file. No action-at-a-distance when a parent's imports change.
 
 ```aski
-# myproject/shapes/imports
-[text StringFormat]
-[collections Set]
+# myproject/shapes/imports — the full visible set for this directory
+[collections Vec Set]
+[text String StringFormat]
 ```
-
-In `myproject/shapes/`, the visible names are the union of parent and local imports.
 
 ## File extensions (per-kind surfaces)
 
