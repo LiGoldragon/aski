@@ -1,5 +1,26 @@
 # aski — The Aski Language
 
+> **RETIRED (2026-04-21).** This repo is a historical design
+> record. The sema-ecosystem (`mentci-next`) does **not** treat
+> aski as a design input. Do not reason from aski axioms
+> (Identity-is-Location / II-L, syntax-v021, synth.md,
+> compile-pipeline framing `corec → askicc → askic → veric →
+> semac`) to current sema architecture. Shared surface features
+> with nexus/nota (delimiter-family matrix, Pascal/camel case
+> rule) are coincidence, not lineage.
+>
+> Li 2026-04-25: "aski is dead." "aski was the wrong way, and
+> it is certainly an influence, but it was the wrong way."
+>
+> If you are working in mentci-next or a sema-ecosystem repo,
+> do not read the content below as authoritative. The canonical
+> architecture lives in `mentci-next/docs/architecture.md`; see
+> §10 "Rejected framings" for the explicit rejection.
+>
+> The content below is preserved for aski's own history.
+
+---
+
 Aski is a text notation for specifying sema. This repo holds:
 
 - `spec/` — language design and syntax reference
